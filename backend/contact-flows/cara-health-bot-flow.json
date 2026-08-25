@@ -1,0 +1,1940 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "11111111-1111-4111-8111-111111111111",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Identifier": "11111111-1111-4111-8111-111111111111",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Transitions": {
+        "NextAction": "22222222-2222-4222-8222-222222222222"
+      }
+    },
+    {
+      "Parameters": {
+        "TextToSpeechVoice": "${VoiceId}",
+        "TextToSpeechEngine": "Generative",
+        "TextToSpeechStyle": "Generative"
+      },
+      "Identifier": "22222222-2222-4222-8222-222222222222",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Transitions": {
+        "NextAction": "20000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "RecordingBehavior": {
+          "RecordedParticipants": [
+            "Agent",
+            "Customer"
+          ],
+          "IVRRecordingBehavior": "Enabled"
+        }
+      },
+      "Identifier": "20000000-0000-4000-8000-000000000001",
+      "Type": "UpdateContactRecordingBehavior",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.identityPrompt",
+        "LexV2Bot": {
+          "AliasArn": "${IdentityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "identity-1",
+          "expectedCustomerName": "$.Attributes.customerName"
+        }
+      },
+      "Identifier": "10000000-0000-4000-8000-000000000001",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000003",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "PatientUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityConfirmed"
+              ]
+            }
+          },
+          {
+            "NextAction": "f1000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityNamedConfirmation"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityDenied"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "ThirdPartyDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RepresentativeDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Deceased"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CallRefusal"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityAmbiguous"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.identityClarification",
+        "LexV2Bot": {
+          "AliasArn": "${IdentityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "identity-2",
+          "expectedCustomerName": "$.Attributes.customerName"
+        }
+      },
+      "Identifier": "10000000-0000-4000-8000-000000000003",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "e0000000-0000-4000-8000-000000000006",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "PatientUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityConfirmed"
+              ]
+            }
+          },
+          {
+            "NextAction": "f1000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityNamedConfirmation"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityDenied"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "ThirdPartyDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RepresentativeDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Deceased"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CallRefusal"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000006",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityAmbiguous"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000006",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.identityFailureMessage"
+      },
+      "Identifier": "10000000-0000-4000-8000-000000000005",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "WisdomAssistantArn": "${WisdomAssistantArn}"
+      },
+      "Identifier": "33333333-3333-4333-8333-333333333333",
+      "Type": "CreateWisdomSession",
+      "Transitions": {
+        "NextAction": "88888888-8888-4888-8888-888888888888",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "initialize",
+          "assistantId": "${WisdomAssistantId}",
+          "sessionArn": "$.Wisdom.SessionArn",
+          "customerName": "$.Attributes.customerName",
+          "expectedPhone": "$.Attributes.expectedPhone"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "88888888-8888-4888-8888-888888888888",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "44444444-4444-4444-8444-444444444444",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "WisdomSessionArn": "$.Wisdom.SessionArn",
+        "TargetContact": "Current"
+      },
+      "Identifier": "44444444-4444-4444-8444-444444444444",
+      "Type": "UpdateContactData",
+      "Transitions": {
+        "NextAction": "55555555-5555-4555-8555-555555555555",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.coachingGreeting",
+        "LexV2Bot": {
+          "AliasArn": "${LexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "30000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "coaching"
+        }
+      },
+      "Identifier": "55555555-5555-4555-8555-555555555555",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${FallbackMessage}"
+      },
+      "Identifier": "66666666-6666-4666-8666-666666666666",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "77777777-7777-4777-8777-777777777777",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "Text": "${IdentitySuccessTransferMessage}"
+      },
+      "Identifier": "90000000-0000-4000-8000-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "90000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "${HumanTransferQueueArn}"
+      },
+      "Identifier": "90000000-0000-4000-8000-000000000001",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "90000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "90000000-0000-4000-8000-000000000002",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "66666666-6666-4666-8666-666666666666",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityConfirmed": "true",
+          "identityPolicyVersion": "v5-confidence-hardened-third-party",
+          "recipientType": "TARGET",
+          "identityResult": "Confirmed"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "90000000-0000-4000-8000-000000000004",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "33333333-3333-4333-8333-333333333333",
+        "Errors": [
+          {
+            "NextAction": "33333333-3333-4333-8333-333333333333",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.thirdPartyAvailabilityPrompt",
+        "LexV2Bot": {
+          "AliasArn": "${AvailabilityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "third-party-availability-1"
+        }
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000001",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000005",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000006",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetAvailableNow"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "AvailabilityUnknown"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000005",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.thirdPartyAvailabilityClarification",
+        "LexV2Bot": {
+          "AliasArn": "${AvailabilityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "third-party-availability-2"
+        }
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000005",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000009",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000006",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetAvailableNow"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "AvailabilityUnknown"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityConfirmed": "false",
+          "identityPolicyVersion": "v5-confidence-hardened-third-party",
+          "recipientType": "THIRD_PARTY_THEN_TARGET",
+          "targetAvailableNow": "true",
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000006",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.passPhonePrompt"
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000002",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.handoffIdentityPrompt",
+        "LexV2Bot": {
+          "AliasArn": "${IdentityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "handoff-identity-1",
+          "expectedCustomerName": "$.Attributes.customerName"
+        }
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000003",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000004",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "PatientUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityConfirmed"
+              ]
+            }
+          },
+          {
+            "NextAction": "f1000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityNamedConfirmation"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityAmbiguous"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityDenied"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "ThirdPartyDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Deceased"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CallRefusal"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.identityClarification",
+        "LexV2Bot": {
+          "AliasArn": "${IdentityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "handoff-identity-2",
+          "expectedCustomerName": "$.Attributes.customerName"
+        }
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000004",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "e0000000-0000-4000-8000-000000000002",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "PatientUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityConfirmed"
+              ]
+            }
+          },
+          {
+            "NextAction": "f1000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityNamedConfirmation"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Deceased"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CallRefusal"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityConfirmed": "true",
+          "identityPolicyVersion": "v5-confidence-hardened-third-party",
+          "recipientType": "THIRD_PARTY_THEN_TARGET",
+          "targetAvailableNow": "true",
+          "identityResult": "Confirmed"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "90000000-0000-4000-8000-000000000005",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "33333333-3333-4333-8333-333333333333",
+        "Errors": [
+          {
+            "NextAction": "33333333-3333-4333-8333-333333333333",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityConfirmed": "false",
+          "identityPolicyVersion": "v5-confidence-hardened-third-party",
+          "recipientType": "THIRD_PARTY",
+          "targetAvailableNow": "false",
+          "callbackDate": "$.Lex.Slots.callbackDate",
+          "callbackTime": "$.Lex.Slots.callbackTime",
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000007",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000008",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000008",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Thank you. I'll note that as a better time to reach them. Have a good day."
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000008",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityConfirmed": "false",
+          "identityPolicyVersion": "v5-confidence-hardened-third-party",
+          "recipientType": "THIRD_PARTY",
+          "targetAvailableNow": "unknown",
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000009",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000010",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000010",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Thank you. I'll try again another time. Have a good day."
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000010",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.patientUnavailablePrompt",
+        "LexV2Bot": {
+          "AliasArn": "${AvailabilityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "patient-unavailable-callback"
+        }
+      },
+      "Identifier": "a0000000-0000-4000-8000-000000000011",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000009",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000006",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetAvailableNow"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TargetUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "AvailabilityUnknown"
+              ]
+            }
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.representativeResponse"
+      },
+      "Identifier": "c0000000-0000-4000-8000-000000000001",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.wrongNumberResponse"
+      },
+      "Identifier": "c0000000-0000-4000-8000-000000000002",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.deceasedResponse"
+      },
+      "Identifier": "c0000000-0000-4000-8000-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.refusalResponse"
+      },
+      "Identifier": "c0000000-0000-4000-8000-000000000004",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.Tool"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000001",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000006",
+        "Conditions": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "EscalateToHuman"
+              ]
+            }
+          },
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RequestCallback"
+              ]
+            }
+          },
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "EndConversation"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000006",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "conversationState": "CALLBACK",
+          "callbackWhen": "$.Lex.SessionAttributes.callbackWhen",
+          "callbackReason": "$.Lex.SessionAttributes.callbackReason"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000002",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${CaraCallbackEndMessage}"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "conversationState": "END",
+          "caraEndReason": "$.Lex.SessionAttributes.endReason"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000004",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000008",
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000008",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "conversationState": "TRANSFER_READY",
+          "caraConversationSummary": "$.Lex.SessionAttributes.conversationSummary",
+          "caraCustomerIntent": "$.Lex.SessionAttributes.customerIntent"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000005",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "90000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${FallbackMessage}"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000006",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${CaraRespectfulClosingMessage}"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000007",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "conversationState": "SAFETY",
+          "safetyCategory": "MEDICAL",
+          "caraEndReason": "safety_medical"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "d0000000-0000-4000-8000-000000000001",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "d0000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "conversationState": "SAFETY",
+          "safetyCategory": "BEHAVIORAL",
+          "caraEndReason": "safety_behavioral"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "d0000000-0000-4000-8000-000000000002",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "d0000000-0000-4000-8000-000000000004",
+        "Errors": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${CaraSafetyMedicalResponse}"
+      },
+      "Identifier": "d0000000-0000-4000-8000-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${CaraSafetyBehavioralResponse}"
+      },
+      "Identifier": "d0000000-0000-4000-8000-000000000004",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.endReason"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000008",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000007",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "safety_medical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "safety_behavioral"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000007",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000001",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "c0000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Ambiguous"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000002",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000005",
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000003",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000004",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000011",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Denied"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000005",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "c0000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "identityResult": "Ambiguous"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000006",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000005",
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "verifyIdentityName",
+          "expectedCustomerName": "$.Attributes.customerName",
+          "spokenFirstName": "$.Lex.Slots.firstName",
+          "spokenLastName": "$.Lex.Slots.lastName"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000001",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "f1000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.identityMatch"
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000002",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000003",
+        "Conditions": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "false"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "verifyIdentityName",
+          "expectedCustomerName": "$.Attributes.customerName",
+          "spokenFirstName": "$.Lex.Slots.firstName",
+          "spokenLastName": "$.Lex.Slots.lastName"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000003",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "f1000000-0000-4000-8000-000000000004",
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.identityMatch"
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000004",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "e0000000-0000-4000-8000-000000000002",
+        "Conditions": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "false"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "verifyIdentityName",
+          "expectedCustomerName": "$.Attributes.customerName",
+          "spokenFirstName": "$.Lex.Slots.firstName",
+          "spokenLastName": "$.Lex.Slots.lastName"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000005",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "f1000000-0000-4000-8000-000000000006",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.identityMatch"
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000006",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000004",
+        "Conditions": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "false"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "verifyIdentityName",
+          "expectedCustomerName": "$.Attributes.customerName",
+          "spokenFirstName": "$.Lex.Slots.firstName",
+          "spokenLastName": "$.Lex.Slots.lastName"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000007",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "f1000000-0000-4000-8000-000000000008",
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.identityMatch"
+      },
+      "Identifier": "f1000000-0000-4000-8000-000000000008",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "e0000000-0000-4000-8000-000000000002",
+        "Conditions": [
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "false"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    }
+  ]
+}

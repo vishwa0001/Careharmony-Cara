@@ -1,0 +1,111 @@
+{
+  "projectName": "CaraHealthBot",
+  "displayName": "Cara Health Bot",
+  "region": "us-east-1",
+  "connectInstanceAliasBase": "cara-health-bot",
+  "assistantName": "CaraHealthBotAssistant",
+  "promptName": "CaraHealthBotPrompt",
+  "agentName": "cara-health-bot-orchestrator",
+  "securityProfileName": "CaraHealthBotAIAgent",
+  "lexRuntimeRoleName": "CaraHealthBotLexRuntimeRole",
+  "lexRuntimePolicyName": "CaraHealthBotLexRuntimePermissions",
+  "botName": "cara-health-bot-nova-2-sonic",
+  "botAliasName": "Live",
+  "flowName": "CaraHealthBotNova2Sonic",
+  "locale": "en_US",
+  "voiceId": "Matthew",
+  "orchestrationModelId": "us.amazon.nova-lite-v1:0",
+  "speechModelId": "amazon.nova-2-sonic-v1:0",
+  "phoneCountryCode": "US",
+  "phoneNumberType": "TOLL_FREE",
+  "allowedDestinationPrefixes": [
+    "+1"
+  ],
+  "greeting": "Hi, may I speak with the customer I was asked to reach?",
+  "fallbackMessage": "I don't want to guess. A human specialist can answer that accurately if you'd like me to connect you.",
+  "sessionContextLambdaName": "cara-health-bot-session-context",
+  "sessionContextLambdaRoleName": "CaraHealthBotSessionContextLambdaRole",
+  "sessionContextLambdaPolicyName": "CaraHealthBotSessionContextLambdaPermissions",
+  "identityBotName": "cara-health-bot-identity-v341",
+  "identityBotAliasName": "Live",
+  "identityLexRuntimeRoleName": "CaraHealthBotIdentityLexRuntimeRole",
+  "identityLexRuntimePolicyName": "CaraHealthBotIdentityLexRuntimePermissions",
+  "humanTransferQueueName": "CaraHealthBotQueue",
+  "identitySuccessTransferMessage": "Thanks. I'll connect you with a human specialist now.",
+  "availabilityBotName": "cara-health-bot-availability",
+  "availabilityBotAliasName": "Live",
+  "humanAgentUsername": "caraagent",
+  "humanAgentFirstName": "Cara",
+  "humanAgentLastName": "Specialist",
+  "humanAgentRoutingProfileName": "CaraHealthBotRoutingProfile",
+  "humanAgentSecurityProfileName": "CaraHealthBotHumanAgent",
+  "humanAgentAfterContactWorkSeconds": 60,
+  "identityNluConfidenceThreshold": 0.9,
+  "caraBehavior": {
+    "agentName": "Cara",
+    "practiceName": "",
+    "openingMessage": "Thanks, {customer_name}. I'm Cara, an automated assistant. I can connect you with a human specialist who can help. Is now a good time?",
+    "transferMessage": "Thanks. I'll connect you with a human specialist now.",
+    "fallbackMessage": "I don't want to guess. A human specialist can answer that accurately if you'd like me to connect you.",
+    "preIdentityQuestionResponse": "I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
+    "questionResponses": {
+      "reason_for_call": {
+        "short": "<CONFIGURE_APPROVED_REASON_FOR_CALL_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_REASON_FOR_CALL_DETAILED>"
+      },
+      "who_are_you": {
+        "short": "I'm Cara, an automated assistant. My role is to help with this call and connect you with a human specialist when appropriate.",
+        "detailed": "I'm Cara, an automated assistant. I can answer approved general questions, understand what you need, and connect you with a human specialist. I won't make up business, medical, coverage, or cost information."
+      },
+      "why_needed": {
+        "short": "<CONFIGURE_APPROVED_WHY_NEEDED_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_WHY_NEEDED_DETAILED>"
+      },
+      "doctor_referral": {
+        "short": "<CONFIGURE_APPROVED_DOCTOR_REFERRAL_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_DOCTOR_REFERRAL_DETAILED>"
+      },
+      "cost": {
+        "short": "<CONFIGURE_APPROVED_COST_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_COST_DETAILED>"
+      },
+      "coverage": {
+        "short": "<CONFIGURE_APPROVED_COVERAGE_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_COVERAGE_DETAILED>"
+      },
+      "existing_service": {
+        "short": "<CONFIGURE_APPROVED_EXISTING_SERVICE_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_EXISTING_SERVICE_DETAILED>"
+      },
+      "time": {
+        "short": "<CONFIGURE_APPROVED_TIME_SHORT>",
+        "detailed": "<CONFIGURE_APPROVED_TIME_DETAILED>"
+      },
+      "scam": {
+        "short": "It's reasonable to check. I'm an automated assistant on this call. I won't ask you to rely on information I can't verify, and I can connect you with a human specialist if you'd prefer.",
+        "detailed": "It's reasonable to be cautious. I'm an automated assistant handling the first part of this call. I won't invent verification details or ask you to trust unsupported claims. If you'd rather speak with a person, I can connect you with a human specialist."
+      }
+    },
+    "objectionResponses": {
+      "general": "That makes sense. If you're open to it, a human specialist can briefly explain the options, and you can decide from there.",
+      "no_need": "I understand. If you're open to it, a human specialist can briefly explain why they reached out, and you can decide whether it's relevant.",
+      "existing_service": "That makes sense. I won't suggest replacing anything. A human specialist can clarify whether this is different or unnecessary for you.",
+      "time": "I understand you're busy. We can either connect briefly now or I can note that you'd prefer a callback.",
+      "cost": "I understand the concern. I don't want to guess about cost. A human specialist can explain any approved cost information accurately."
+    },
+    "callbackResponses": {
+      "specificAcknowledgement": "Absolutely. I'll note {callback_when} as the time you'd prefer.",
+      "unspecified": "No problem. I'll note that now isn't a good time and end the call.",
+      "endMessage": "Thanks. I've noted your callback preference. Have a good day."
+    },
+    "otherPersonResponse": "Thanks. I need to speak directly with {customer_name}. Is {customer_name} available to come to the phone?",
+    "representativeResponse": "Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
+    "patientUnavailableResponse": "No problem. If you know a better day and time to reach {customer_name}, I can note it.",
+    "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
+    "deceasedResponse": "I'm sorry. Thank you for letting me know. I won't continue this call. Take care.",
+    "refusalResponse": "Understood. I won't continue this call. Thank you for your time.",
+    "respectfulClosingMessage": "Understood. Thank you for your time. Have a good day.",
+    "safetyMedicalResponse": "This could need urgent medical attention. I can't assess symptoms or provide medical advice. Please contact local emergency services or seek immediate help from a qualified medical professional now. I'm going to end this call so you can focus on getting help.",
+    "safetyBehavioralResponse": "I'm concerned about immediate safety. I can't provide crisis counseling on this call. Please contact local emergency services or an appropriate local crisis service now. I'm going to end this call so you can focus on getting help."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "campaignId": "cara-demo-001",
+  "fileName": "sample-patients.csv",
+  "customerCount": 3,
+  "scheduledAt": "2026-08-25T10:00:00",
+  "timezone": "America/New_York",
+  "callTime": "2026-08-25T14:00:00Z"
+}
