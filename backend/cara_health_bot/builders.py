@@ -198,6 +198,17 @@ def identity_confirmed_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[s
         "this is Sarah",
         "yes this is Sarah",
         "you are speaking with me",
+        "yeah this is me",
+        "yeah that's me", 
+        "yes this is him",
+        "yes this is her",
+        "it's me",
+        "yes it's me",
+        "yeah it's me",
+        "correct this is me",
+        "yes you have the right person",
+        "this is the right person",
+        "yes that's correct",
     ]
     return {
         "intentName": "IdentityConfirmed",
