@@ -616,7 +616,10 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
             ["Agent", "Customer"],
         )
         voice = next(a for a in actions if a["Identifier"] == "22222222-2222-4222-8222-222222222222")
-        self.assertEqual(voice["Transitions"]["NextAction"], recording["Identifier"])
+        # self.assertEqual(voice["Transitions"]["NextAction"], recording["Identifier"])
+        recording_msg = next(a for a in actions if a["Identifier"] == "99999999-9999-4999-8999-999999999999")
+        self.assertEqual(voice["Transitions"]["NextAction"], recording_msg["Identifier"])
+        self.assertEqual(recording_msg["Transitions"]["NextAction"], recording["Identifier"])
 
     def test_cara_business_wording_is_configurable(self):
         cara = self.cfg.cara_behavior
