@@ -288,14 +288,14 @@ export function validateSheetContent(parsedData: ParsedSheetData): ValidationSum
 
         const cleanPhone = sanitizePhoneNumber(phoneVal);
         if (seenPhones.has(cleanPhone)) {
-          errors.push({
-            row: rowNum,
-            column: foundHeaders['phone_number'],
-            message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
-            type: 'FATAL',
-          });
-          errorCount++;
-          noDuplicatePhones = false;
+        //  errors.push({
+        //    row: rowNum,
+        //    column: foundHeaders['phone_number'],
+        //    message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
+        //    type: 'FATAL',
+        //  });
+        //  errorCount++;
+        //  noDuplicatePhones = false;
         } else {
           seenPhones.add(cleanPhone);
         }
