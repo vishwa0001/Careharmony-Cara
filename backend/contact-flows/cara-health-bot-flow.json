@@ -28,26 +28,10 @@
       "Identifier": "22222222-2222-4222-8222-222222222222",
       "Type": "UpdateContactTextToSpeechVoice",
       "Transitions": {
-        "NextAction": "99999999-9999-4999-8999-999999999999",
-        "Errors": [
-          {
-            "NextAction": "66666666-6666-4666-8666-666666666666",
-            "ErrorType": "NoMatchingError"
-          }
-        ]
-      }
-    },
-    {
-      "Parameters": {
-        "Text": "This call is being recorded."
-      },
-      "Identifier": "99999999-9999-4999-8999-999999999999",
-      "Type": "MessageParticipant",
-      "Transitions": {
         "NextAction": "20000000-0000-4000-8000-000000000001",
         "Errors": [
           {
-            "NextAction": "20000000-0000-4000-8000-000000000001",
+            "NextAction": "66666666-6666-4666-8666-666666666666",
             "ErrorType": "NoMatchingError"
           }
         ]
@@ -66,11 +50,12 @@
       "Identifier": "20000000-0000-4000-8000-000000000001",
       "Type": "UpdateContactRecordingBehavior",
       "Transitions": {
-        "NextAction": "40000000-0000-4000-8000-000000000001"
+        "NextAction": "10000000-0000-4000-8000-000000000001"
       }
     },
     {
       "Parameters": {
+        "Text": "$.Attributes.identityPrompt",
         "LexV2Bot": {
           "AliasArn": "${IdentityLexBotAliasArn}"
         },
@@ -81,8 +66,7 @@
           "caraHealthBotContactId": "$.ContactId",
           "caraHealthBotPhase": "identity-1",
           "expectedCustomerName": "$.Attributes.customerName"
-        },
-        "Text": "$.Attributes.identityPrompt"
+        }
       },
       "Identifier": "10000000-0000-4000-8000-000000000001",
       "Type": "ConnectParticipantWithLexBot",
@@ -1948,58 +1932,6 @@
           {
             "NextAction": "e0000000-0000-4000-8000-000000000002",
             "ErrorType": "NoMatchingCondition"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "40000000-0000-4000-8000-000000000001",
-      "Type": "CheckOutboundCallStatus",
-      "Parameters": {},
-      "Transitions": {
-        "NextAction": "77777777-7777-4777-8777-777777777777",
-        "Conditions": [
-          {
-            "NextAction": "10000000-0000-4000-8000-000000000001",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "CallAnswered"
-              ]
-            }
-          },
-          {
-            "NextAction": "77777777-7777-4777-8777-777777777777",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "VoicemailBeep"
-              ]
-            }
-          },
-          {
-            "NextAction": "77777777-7777-4777-8777-777777777777",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "VoicemailNoBeep"
-              ]
-            }
-          },
-          {
-            "NextAction": "77777777-7777-4777-8777-777777777777",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "NotDetected"
-              ]
-            }
-          }
-        ],
-        "Errors": [
-          {
-            "NextAction": "77777777-7777-4777-8777-777777777777",
-            "ErrorType": "NoMatchingError"
           }
         ]
       }

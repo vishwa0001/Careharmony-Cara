@@ -133,12 +133,12 @@ def _load_patients(s3, bucket: str, campaign_id: str) -> list[dict]:
         practice = get("practice_name")
         if not empi or not first or not last or not practice:
             raise ValueError(f"row {line}: empi, first_name, last_name and practice_name are required")
-        if empi in seen_empi:
-            raise ValueError(f"row {line}: duplicate empi")
+        # if empi in seen_empi:
+        #     raise ValueError(f"row {line}: duplicate empi")
         seen_empi.add(empi)
         phone = _normalize_phone_e164(get("phone_number"))
-        if phone in seen_phone:
-            raise ValueError(f"row {line}: duplicate phone_number")
+        # if phone in seen_phone:
+        #     raise ValueError(f"row {line}: duplicate phone_number")
         seen_phone.add(phone)
         callback = _normalize_callback(get("practice_callback_number"))
         rows.append({
