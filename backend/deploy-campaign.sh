@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+export CARA_CAMPAIGN_FRONTEND_ORIGIN="${CARA_CAMPAIGN_FRONTEND_ORIGIN:-https://careharmony.netlify.app}"
+
+export CARA_CAMPAIGN_API_AUTH_TYPE="${CARA_CAMPAIGN_API_AUTH_TYPE:-NONE}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
