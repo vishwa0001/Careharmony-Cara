@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { CalendarClock, CheckCircle2, Loader2, RotateCcw, Send } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Headset, Loader2, Phone, RotateCcw, Send } from 'lucide-react';
 import { useScheduledCalls } from '../../hooks/useScheduledCalls';
 import { CustomerSheetUpload } from './components/CustomerSheetUpload';
 import { Header } from './components/Header';
@@ -40,6 +40,11 @@ export const ScheduledCallsPage: React.FC = () => {
     statusFilter,
     setSearchQuery,
     setStatusFilter,
+    directAgentEnabled,
+    humanAgentPhoneNumber,
+    agentPhoneError,
+    handleHumanAgentPhoneChange,
+    handleToggleDirectAgent,
     handleFileSelect,
     handleScheduleTimeChange,
     handleInitiateSchedule,
@@ -124,6 +129,74 @@ export const ScheduledCallsPage: React.FC = () => {
               />
             </div>
 
+            {/* SECTION: Direct to Human Agent (Campaign-Level Setting) */}
+            <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <label htmlFor="direct-agent-toggle" className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 cursor-pointer">
+                    <Headset className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    Direct to Human Agent
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+                    When enabled, confirmed customers in this campaign will be connected directly to a human specialist upon identity confirmation without automated screening.
+                  </p>
+                </div>
+
+                <div className="flex items-center pt-0.5">
+                  <button
+                    id="direct-agent-toggle"
+                    type="button"
+                    role="switch"
+                    aria-checked={directAgentEnabled}
+                    onClick={() => handleToggleDirectAgent(!directAgentEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                      directAgentEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        directAgentEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Human Agent Phone Number Input (Always visible and required) */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                <label htmlFor="human-agent-phone" className="block text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Human Agent Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative max-w-md">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="human-agent-phone"
+                    type="tel"
+                    value={humanAgentPhoneNumber}
+                    onChange={(e) => handleHumanAgentPhoneChange(e.target.value)}
+                    placeholder="+1 (443) 726-4019"
+                    className={`w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 border rounded-xl shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                      agentPhoneError
+                        ? 'border-rose-300 dark:border-rose-700 focus:ring-rose-500 text-rose-900 dark:text-rose-200'
+                        : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-slate-900 dark:text-slate-100'
+                    }`}
+                  />
+                </div>
+                {agentPhoneError ? (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    {agentPhoneError}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Enter the human specialist phone number (e.g. +14437264019). Used for direct handoff when toggle is ON, or mid-call escalation when caller agrees to transfer in Normal Cara Flow.
+                  </p>
+                )}
+              </div>
+            </div>
+
             {/* Validation Breakdown Summary */}
             <ValidationSummaryCallout summary={validationSummary} />
 
@@ -199,6 +272,8 @@ export const ScheduledCallsPage: React.FC = () => {
         customerCount={validationSummary?.totalRows || 0}
         scheduleTime={scheduleTime}
         timezone={selectedTimezone}
+        directAgentEnabled={directAgentEnabled}
+        humanAgentPhoneNumber={humanAgentPhoneNumber}
         isSubmitting={isSubmitting}
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleConfirmSchedule}

@@ -59,56 +59,77 @@ def _verify_identity_name(expected: str, first: str, last: str) -> str:
     )
 
 
-def _fetch_agent_availability(patient_id: str, empi: str) -> dict[str, str]:
-    import os
-    import json
-    import urllib.request
-    import urllib.parse
-    import datetime as dt
-
-    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    url = os.environ.get("AGENT_AVAILABILITY_URL", "https://uqyt6tgmp3dktodmkrkxqmn3f40wndqq.lambda-url.us-east-1.on.aws/")
-    fixed_phone = os.environ.get("FIXED_AGENT_PHONE", "+15822671755")
-
-    try:
-        target_url = url
-        params = {}
-        if patient_id:
-            params["patientId"] = patient_id
-        if empi:
-            params["empi"] = empi
-        if params:
-            query = urllib.parse.urlencode(params)
-            target_url = f"{url}?{query}" if "?" not in url else f"{url}&{query}"
-        with urllib.request.urlopen(target_url, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            available = bool(data.get("available"))
-            agent_phone = str(data.get("agentPhone") or fixed_phone)
-            checked_at = str(data.get("checkedAt") or now_iso)
-            return {
-                "available": "true" if available else "false",
-                "agentPhone": agent_phone,
-                "agentCheckedAt": checked_at,
-            }
-    except Exception as e:
-        print(f"[WARN] _fetch_agent_availability failed: {e}")
-        return {
-            "available": "false",
-            "agentPhone": fixed_phone,
-            "agentCheckedAt": now_iso,
-        }
+# DISABLED FOR CLIENT TESTING — see 2026-09-01 Option A static humanAgentPhoneNumber migration
+# Dynamic agent-availability API check is disabled for client testing in favor of campaign-level humanAgentPhoneNumber.
+# def _fetch_agent_availability(patient_id: str, empi: str) -> dict[str, str]:
+#     import os
+#     import json
+#     import urllib.request
+#     import urllib.parse
+#     import datetime as dt
+#
+#     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+#     url = os.environ.get("AGENT_AVAILABILITY_URL", "https://uqyt6tgmp3dktodmkrkxqmn3f40wndqq.lambda-url.us-east-1.on.aws/")
+#     fixed_phone = os.environ.get("FIXED_AGENT_PHONE", "+15822671755")
+#
+#     try:
+#         target_url = url
+#         params = {}
+#         if patient_id:
+#             params["patientId"] = patient_id
+#         if empi:
+#             params["empi"] = empi
+#         if params:
+#             query = urllib.parse.urlencode(params)
+#             target_url = f"{url}?{query}" if "?" not in url else f"{url}&{query}"
+#         with urllib.request.urlopen(target_url, timeout=5) as resp:
+#             data = json.loads(resp.read().decode("utf-8"))
+#             available = bool(data.get("available"))
+#             agent_phone = str(data.get("agentPhone") or fixed_phone)
+#             checked_at = str(data.get("checkedAt") or now_iso)
+#             return {
+#                 "available": "true" if available else "false",
+#                 "agentPhone": agent_phone,
+#                 "agentCheckedAt": checked_at,
+#             }
+#     except Exception as e:
+#         print(f"[WARN] _fetch_agent_availability failed: {e}")
+#         return {
+#             "available": "false",
+#             "agentPhone": fixed_phone,
+#             "agentCheckedAt": now_iso,
+#         }
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
+    import os
+    import datetime as dt
+
     # Do not log the incoming event because it contains customer-specific data.
     details = event.get("Details") or {}
+    contact_data = details.get("ContactData") or {}
+    attributes = contact_data.get("Attributes") or {}
     params = details.get("Parameters") or {}
     operation = str(params.get("operation") or "initialize").strip()
 
     if operation == "checkAgentAvailability":
-        patient_id = _optional(params, "patientId")
-        empi = _optional(params, "empi")
-        return _fetch_agent_availability(patient_id, empi)
+        # Option A: Use the static campaign-level human agent phone number as the sole transfer target.
+        patient_id = _optional(params, "patientId") or _optional(attributes, "patientId")
+        empi = _optional(params, "empi") or _optional(attributes, "empi")
+        configured_agent_phone = (
+            _optional(params, "humanAgentPhoneNumber")
+            or _optional(attributes, "humanAgentPhoneNumber")
+            or _optional(params, "agentPhone")
+            or _optional(attributes, "agentPhone")
+            or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
+        )
+        now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"[session_context] [INFO] Option A mid-call transfer target resolved: patientId={patient_id} empi={empi} agentPhone={configured_agent_phone}")
+        return {
+            "available": "true",
+            "agentPhone": configured_agent_phone,
+            "agentCheckedAt": now_iso,
+        }
 
     if operation == "verifyIdentityName":
         expected = _required(params, "expectedCustomerName")

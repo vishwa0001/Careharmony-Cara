@@ -97,6 +97,15 @@ def main():
     agent_version = agent_ver_res.get("versionNumber", 1)
     print(f"   -> AI Agent updated with new prompt version. Agent version: {agent_version}")
 
+    # Point assistant's Connect.SelfService orchestrator to the new agent version
+    qconnect_client.update_assistant_ai_agent(
+        assistantId=assistant_id,
+        aiAgentType="ORCHESTRATION",
+        orchestratorUseCase="Connect.SelfService",
+        configuration={"aiAgentId": f"{agent_id}:{agent_version}"},
+    )
+    print(f"   -> Assistant Connect.SelfService orchestrator updated to agent version {agent_version}")
+
     print("\nAll components successfully synced to AWS!")
 
 if __name__ == "__main__":

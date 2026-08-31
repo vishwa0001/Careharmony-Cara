@@ -238,17 +238,31 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
 
     # Direct agent routing
     if direct_agent == "yes" or call_mode == "DIRECT_HUMAN_HANDOFF":
-        availability = _check_agent_availability(patient_id=patient_id, empi=empi)
-        agent_available = availability.get("available", False)
-        if not agent_available:
-            agent_available = check_agent_availability({"patientId": patient_id, "empi": empi})
-        if agent_available:
-            call_mode = "DIRECT_HUMAN_HANDOFF"
-            agent_phone = availability.get("agentPhone") or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
-            agent_checked_at = availability.get("checkedAt") or _now()
-        else:
-            # Fail-safe: agent unavailable -> Normal Cara Flow
-            call_mode = "NORMAL"
+        # DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
+        # Pre-call mock availability check is disabled during client testing; the configured
+        # humanAgentPhoneNumber is used directly for transfer without a pre-call check.
+        #
+        # availability = _check_agent_availability(patient_id=patient_id, empi=empi)
+        # agent_available = availability.get("available", False)
+        # if not agent_available:
+        #     agent_available = check_agent_availability({"patientId": patient_id, "empi": empi})
+        # if agent_available:
+        #     call_mode = "DIRECT_HUMAN_HANDOFF"
+        #     agent_phone = availability.get("agentPhone") or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
+        #     agent_checked_at = availability.get("checkedAt") or _now()
+        # else:
+        #     # Fail-safe: agent unavailable -> Normal Cara Flow
+        #     call_mode = "NORMAL"
+
+        call_mode = "DIRECT_HUMAN_HANDOFF"
+        agent_checked_at = _now()
+
+    # Always resolve the campaign-level human agent phone number
+    agent_phone = str(
+        patient.get("humanAgentPhoneNumber")
+        or (campaign or {}).get("humanAgentPhoneNumber")
+        or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", "+15822671755")
+    )
 
     first_name = str(patient.get("firstName") or "")
     practice_name = str(patient.get("practiceName") or "")
@@ -277,6 +291,7 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
             "patientId": patient["patientId"],
             "customerName": customer_name,
             "expectedPhone": patient["phoneNumber"],
+            "humanAgentPhoneNumber": agent_phone or "+15822671755",
             "empi": str(patient.get("empi") or patient["patientId"]),
             "firstName": first_name,
             "lastName": str(patient.get("lastName") or ""),

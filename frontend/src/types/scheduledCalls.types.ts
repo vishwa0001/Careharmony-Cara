@@ -78,6 +78,7 @@ export interface ScheduledUpload {
   uploadedAt: string;
   status: UploadStatus;
   callMode?: CallMode;
+  directAgentEnabled?: boolean;
   humanAgentPhoneNumber?: string;
   validationSummary?: ValidationSummary;
   summary?: CampaignDispositionSummary;
@@ -96,6 +97,8 @@ export interface ScheduleSubmissionPayload {
   timezone: string;
   customerCount: number;
   validationSummary: ValidationSummary;
+  directAgentEnabled?: boolean;
+  humanAgentPhoneNumber?: string;
   originalRecordId?: string;
 }
 

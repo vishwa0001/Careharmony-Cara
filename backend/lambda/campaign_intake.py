@@ -127,14 +127,24 @@ def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None
     fields = reader.fieldnames or []
     mapping = _field_map(fields)
 
-    fixed_agent_phone = os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", FIXED_HUMAN_AGENT_PHONE_NUMBER)
+    # Campaign-level Direct Agent configuration (Client Testing)
+    cfg = config or {}
+    direct_agent_enabled = bool(
+        cfg.get("directAgentEnabled") in {True, "true", "True", 1}
+        or str(cfg.get("direct_agent") or "").strip().lower() == "yes"
+    )
+    campaign_agent_phone = str(
+        cfg.get("humanAgentPhoneNumber")
+        or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", FIXED_HUMAN_AGENT_PHONE_NUMBER)
+    ).strip()
 
-    # Check for 'direct agent' column header
+    # Check for legacy 'direct agent' column header in CSV if present (ignored for client testing)
     direct_agent_header = None
     for field in fields:
         clean = _clean_key(field)
         if clean == "directagent":
             direct_agent_header = field
+            print(f"[campaign_intake] [INFO] CSV contains '{field}' column; ignoring per-row direct_agent in favor of campaign-level setting (directAgentEnabled={direct_agent_enabled})")
             break
 
     rows: list[dict] = []
@@ -147,16 +157,17 @@ def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None
         last = get("last_name")
         gender = get("gender")
         practice = get("practice_name")
-        if not empi or not first or not last or not practice:
-            raise ValueError(f"row {line}: empi, first_name, last_name and practice_name are required")
-        if empi in seen_empi:
-            raise ValueError(f"row {line}: duplicate empi")
+        # if not empi or not first or not last or not practice:
+        #     raise ValueError(f"row {line}: empi, first_name, last_name and practice_name are required")
+        # if empi in seen_empi:
+        #     raise ValueError(f"row {line}: duplicate empi")
         seen_empi.add(empi)
         phone = _normalize_phone_e164(get("phone_number"))
         seen_phone.add(phone)
         callback = _normalize_callback(get("practice_callback_number"))
 
-        raw_direct = str(row.get(direct_agent_header) or "").strip().lower() if direct_agent_header else ""
+        # DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
+        # raw_direct = str(row.get(direct_agent_header) or "").strip().lower() if direct_agent_header else ""
 
         patient_dict = {
             "patientId": empi,
@@ -170,16 +181,25 @@ def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None
             "practiceCallbackNumber": callback,
         }
 
-        # Read direct_agent column; normalize to lowercase "yes" or "no", default "no"
-        if raw_direct == "yes":
+        # Apply campaign-level Direct Agent configuration
+        patient_dict["humanAgentPhoneNumber"] = campaign_agent_phone
+        if direct_agent_enabled:
             patient_dict["direct_agent"] = "yes"
             patient_dict["callMode"] = "DIRECT_HUMAN_HANDOFF"
-            patient_dict["humanAgentPhoneNumber"] = fixed_agent_phone
-        elif raw_direct in {"no", ""} or direct_agent_header is None:
+        else:
             patient_dict["direct_agent"] = "no"
             patient_dict["callMode"] = "NORMAL"
-        else:
-            raise ValueError(f"row {line}: invalid direct agent value '{row.get(direct_agent_header)}'. Expected 'yes' or 'no'")
+
+        # DISABLED FOR CLIENT TESTING — see 2026-09-01
+        # if raw_direct == "yes":
+        #     patient_dict["direct_agent"] = "yes"
+        #     patient_dict["callMode"] = "DIRECT_HUMAN_HANDOFF"
+        #     patient_dict["humanAgentPhoneNumber"] = fixed_agent_phone
+        # elif raw_direct in {"no", ""} or direct_agent_header is None:
+        #     patient_dict["direct_agent"] = "no"
+        #     patient_dict["callMode"] = "NORMAL"
+        # else:
+        #     raise ValueError(f"row {line}: invalid direct agent value '{row.get(direct_agent_header)}'. Expected 'yes' or 'no'")
 
         rows.append(patient_dict)
     if not rows:

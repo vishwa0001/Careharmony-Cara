@@ -231,6 +231,17 @@ def _create_upload(payload: dict) -> dict:
         raise ValueError("fileSize exceeds the 10 MB limit")
     original_id = (payload.get("originalRecordId") or "").strip() or None
 
+    # Campaign-level configuration (Direct Agent toggle + Human Agent Phone Number)
+    direct_agent_enabled = bool(payload.get("directAgentEnabled") in {True, "true", "True", 1})
+    human_agent_phone = str(payload.get("humanAgentPhoneNumber") or "").strip()
+
+    if not human_agent_phone:
+        raise ValueError("humanAgentPhoneNumber is required for campaign creation")
+    try:
+        human_agent_phone = normalize_phone_e164(human_agent_phone)
+    except Exception as err:
+        raise ValueError(f"humanAgentPhoneNumber must be a valid E.164 phone number: {err}") from err
+
     now = _now()
     config = {
         "campaignId": campaign_id,
@@ -243,6 +254,8 @@ def _create_upload(payload: dict) -> dict:
         "callTime": utc_iso,
         "uploadedAt": now,
         "originalRecordId": original_id,
+        "directAgentEnabled": direct_agent_enabled,
+        "humanAgentPhoneNumber": human_agent_phone,
     }
     key = f"campaigns/{campaign_id}/patients.csv"
     batches_tbl.put_item(
@@ -263,6 +276,8 @@ def _create_upload(payload: dict) -> dict:
             "uploadedAt": now,
             "createdAt": now,
             "updatedAt": now,
+            "directAgentEnabled": direct_agent_enabled,
+            "humanAgentPhoneNumber": human_agent_phone,
             **({"originalRecordId": original_id} if original_id else {}),
         },
         ConditionExpression=Attr("batchId").not_exists(),
