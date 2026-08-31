@@ -50,7 +50,7 @@
       "Identifier": "20000000-0000-4000-8000-000000000001",
       "Type": "UpdateContactRecordingBehavior",
       "Transitions": {
-        "NextAction": "10000000-0000-4000-8000-000000000001"
+        "NextAction": "e1000000-0000-4000-8000-000000000001"
       }
     },
     {
@@ -403,7 +403,10 @@
           "assistantId": "${WisdomAssistantId}",
           "sessionArn": "$.Wisdom.SessionArn",
           "customerName": "$.Attributes.customerName",
-          "expectedPhone": "$.Attributes.expectedPhone"
+          "expectedPhone": "$.Attributes.expectedPhone",
+          "firstName": "$.Attributes.firstName",
+          "practiceName": "$.Attributes.practiceName",
+          "direct_agent": "$.Attributes.direct_agent"
         },
         "ResponseValidation": {
           "ResponseType": "STRING_MAP"
@@ -1419,10 +1422,83 @@
       "Identifier": "b0000000-0000-4000-8000-000000000005",
       "Type": "UpdateContactAttributes",
       "Transitions": {
-        "NextAction": "90000000-0000-4000-8000-000000000003",
+        "NextAction": "b0000000-0000-4000-8000-000000000010",
         "Errors": [
           {
-            "NextAction": "90000000-0000-4000-8000-000000000003",
+            "NextAction": "b0000000-0000-4000-8000-000000000010",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "checkAgentAvailability",
+          "patientId": "$.Attributes.patientId",
+          "empi": "$.Attributes.empi"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000010",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000011",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.available"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000011",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000011",
+        "Conditions": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000012",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "humanAgentPhoneNumber": "$.External.agentPhone",
+          "agentAvailabilityCheckedAt": "$.External.agentCheckedAt"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000012",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000003",
             "ErrorType": "NoMatchingError"
           }
         ]
@@ -1932,6 +2008,128 @@
           {
             "NextAction": "e0000000-0000-4000-8000-000000000002",
             "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Attributes.callMode"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000001",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000001",
+        "Conditions": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "DIRECT_HUMAN_HANDOFF"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Attributes.humanAgentPhoneNumber"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000002",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000005",
+        "Conditions": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "TextStartsWith",
+              "Operands": [
+                "+"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Please hold while I connect your call to a human representative."
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000006",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "CallerIdNumber": "$.SystemEndpoint.Address"
+        }
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000006",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000004",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ThirdPartyPhoneNumber": "$.Attributes.humanAgentPhoneNumber",
+        "ThirdPartyConnectionTimeLimitSeconds": "60",
+        "ContinueFlowExecution": "False"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000004",
+      "Type": "TransferParticipantToThirdParty",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "The representative is currently unavailable or the phone number provided is invalid. Goodbye."
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000005",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "77777777-7777-4777-8777-777777777777",
+            "ErrorType": "NoMatchingError"
           }
         ]
       }

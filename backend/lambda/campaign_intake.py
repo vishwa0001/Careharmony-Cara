@@ -20,6 +20,8 @@ import boto3
 from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
 
+from cara_health_bot.phone_utils import normalize_phone_e164, validate_destination_prefix
+
 STATUS_CAMPAIGN_UPLOAD_PENDING = "UPLOAD_PENDING"
 STATUS_CAMPAIGN_PENDING = "PENDING"
 STATUS_CAMPAIGN_VALIDATION_FAILED = "VALIDATION_FAILED"
@@ -115,12 +117,26 @@ def _load_config(s3, bucket: str, campaign_id: str) -> dict:
     return data
 
 
-def _load_patients(s3, bucket: str, campaign_id: str) -> list[dict]:
+FIXED_HUMAN_AGENT_PHONE_NUMBER = "+15822671755"
+
+
+def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None) -> list[dict]:
     response = s3.get_object(Bucket=bucket, Key=f"campaigns/{campaign_id}/patients.csv")
     text = response["Body"].read().decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
     fields = reader.fieldnames or []
     mapping = _field_map(fields)
+
+    fixed_agent_phone = os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", FIXED_HUMAN_AGENT_PHONE_NUMBER)
+
+    # Check for 'direct agent' column header
+    direct_agent_header = None
+    for field in fields:
+        clean = _clean_key(field)
+        if clean == "directagent":
+            direct_agent_header = field
+            break
+
     rows: list[dict] = []
     seen_empi: set[str] = set()
     seen_phone: set[str] = set()
@@ -137,11 +153,12 @@ def _load_patients(s3, bucket: str, campaign_id: str) -> list[dict]:
             raise ValueError(f"row {line}: duplicate empi")
         seen_empi.add(empi)
         phone = _normalize_phone_e164(get("phone_number"))
-        if phone in seen_phone:
-            raise ValueError(f"row {line}: duplicate phone_number")
         seen_phone.add(phone)
         callback = _normalize_callback(get("practice_callback_number"))
-        rows.append({
+
+        raw_direct = str(row.get(direct_agent_header) or "").strip().lower() if direct_agent_header else ""
+
+        patient_dict = {
             "patientId": empi,
             "empi": empi,
             "firstName": first,
@@ -151,20 +168,37 @@ def _load_patients(s3, bucket: str, campaign_id: str) -> list[dict]:
             "phoneNumber": phone,
             "practiceName": practice,
             "practiceCallbackNumber": callback,
-        })
+        }
+
+        # Read direct_agent column; normalize to lowercase "yes" or "no", default "no"
+        if raw_direct == "yes":
+            patient_dict["direct_agent"] = "yes"
+            patient_dict["callMode"] = "DIRECT_HUMAN_HANDOFF"
+            patient_dict["humanAgentPhoneNumber"] = fixed_agent_phone
+        elif raw_direct in {"no", ""} or direct_agent_header is None:
+            patient_dict["direct_agent"] = "no"
+            patient_dict["callMode"] = "NORMAL"
+        else:
+            raise ValueError(f"row {line}: invalid direct agent value '{row.get(direct_agent_header)}'. Expected 'yes' or 'no'")
+
+        rows.append(patient_dict)
     if not rows:
         raise ValueError("patients.csv has no data rows")
     return rows
 
 
-def _record_key(sequence_number: int, patient_id: str) -> str:
-    return f"PATIENT#{sequence_number:08d}#{patient_id}"
+def _batches_table():
+    return boto3.resource("dynamodb").Table(os.environ.get("BATCHES_TABLE_NAME", "TalkingBotCallBatches-dev"))
 
 
-def _set_validation_failed(table, campaign_id: str, reason: str) -> None:
+def _patients_table():
+    return boto3.resource("dynamodb").Table(os.environ.get("PATIENTS_TABLE_NAME", "TalkingBotPatientRecords-dev"))
+
+
+def _set_validation_failed(batches_table, campaign_id: str, reason: str) -> None:
     try:
-        table.update_item(
-            Key={"campaignId": campaign_id, "recordKey": CAMPAIGN_RECORD_KEY},
+        batches_table.update_item(
+            Key={"batchId": campaign_id},
             UpdateExpression="SET #s=:failed, failureReason=:reason, updatedAt=:now",
             ConditionExpression="#s <> :cancelled",
             ExpressionAttributeNames={"#s": "status"},
@@ -177,46 +211,62 @@ def _set_validation_failed(table, campaign_id: str, reason: str) -> None:
         pass
 
 
-def _write_state(table, campaign_id: str, patients: list[dict], local_time: str, call_time: str, config: dict) -> None:
+def _write_state(batches_table, patients_table, campaign_id: str, patients: list[dict], local_time: str, call_time: str, config: dict) -> None:
     now = _now()
-    existing = table.get_item(Key={"campaignId": campaign_id, "recordKey": CAMPAIGN_RECORD_KEY}).get("Item")
+
+    existing = batches_table.get_item(Key={"batchId": campaign_id}).get("Item")
     if existing and existing.get("status") not in {STATUS_CAMPAIGN_UPLOAD_PENDING, STATUS_CAMPAIGN_PENDING}:
         raise ValueError(f"campaign {campaign_id} already exists with status {existing.get('status')}")
+    
+    update_expr = (
+        "SET #s=:pending, totalRows=:count, validRows=:count, invalidRows=:zero, patientCount=:count, customerCount=:count, scheduledAt=:local, "
+        "scheduledFor=:utc, #tz=:tz, updatedAt=:now REMOVE failureReason"
+    )
+    expr_vals = {
+        ":pending": STATUS_CAMPAIGN_PENDING, ":count": len(patients), ":zero": 0, ":local": local_time,
+        ":utc": call_time, ":tz": str(config.get("timezone") or "UTC"), ":now": now,
+    }
+
     if existing:
-        table.update_item(
-            Key={"campaignId": campaign_id, "recordKey": CAMPAIGN_RECORD_KEY},
-            UpdateExpression=(
-                "SET #s=:pending, patientCount=:count, customerCount=:count, scheduledAt=:local, "
-                "scheduledFor=:utc, #tz=:tz, updatedAt=:now REMOVE failureReason"
-            ),
+        batches_table.update_item(
+            Key={"batchId": campaign_id},
+            UpdateExpression=update_expr,
             ExpressionAttributeNames={"#s": "status", "#tz": "timezone"},
-            ExpressionAttributeValues={
-                ":pending": STATUS_CAMPAIGN_PENDING, ":count": len(patients), ":local": local_time,
-                ":utc": call_time, ":tz": str(config.get("timezone") or "UTC"), ":now": now,
-            },
+            ExpressionAttributeValues=expr_vals,
         )
     else:
-        table.put_item(Item={
-            "campaignId": campaign_id, "recordKey": CAMPAIGN_RECORD_KEY, "entityType": "CAMPAIGN",
-            "status": STATUS_CAMPAIGN_PENDING, "patientCount": len(patients), "customerCount": len(patients),
+        item = {
+            "batchId": campaign_id, "campaignId": campaign_id,
+            "status": STATUS_CAMPAIGN_PENDING, "totalRows": len(patients), "validRows": len(patients), "invalidRows": 0,
+            "patientCount": len(patients), "customerCount": len(patients),
             "createdAt": now, "uploadedAt": now, "scheduledAt": local_time, "scheduledFor": call_time,
             "timezone": str(config.get("timezone") or "UTC"), "updatedAt": now,
             "fileName": config.get("fileName", "patients.csv"), "fileSize": int(config.get("fileSize") or 0),
+            "s3Bucket": config.get("s3Bucket", ""), "s3Key": f"campaigns/{campaign_id}/patients.csv",
             **({"originalRecordId": config["originalRecordId"]} if config.get("originalRecordId") else {}),
-        })
+        }
+        batches_table.put_item(Item=item)
 
     for sequence, patient in enumerate(patients, start=1):
+        patient_id = f"{campaign_id}#row-{sequence}"
         item = {
-            "campaignId": campaign_id, "recordKey": _record_key(sequence, patient["patientId"]),
-            "entityType": "PATIENT", "sequenceNumber": sequence, "status": STATUS_PATIENT_PENDING,
-            "attemptCount": 0, "createdAt": now, "updatedAt": now, **patient,
+            "patientId": patient_id,
+            "batchId": campaign_id,
+            "rowNumber": sequence,
+            "status": STATUS_PATIENT_PENDING,
+            "callSlotStart": call_time,
+            "attemptCount": 0,
+            "createdAt": now,
+            "updatedAt": now,
+            **patient,
         }
+        item["patientId"] = patient_id
         try:
-            table.put_item(Item=item, ConditionExpression=Attr("recordKey").not_exists())
+            patients_table.put_item(Item=item, ConditionExpression=Attr("patientId").not_exists())
         except ClientError as error:
             if error.response.get("Error", {}).get("Code") != "ConditionalCheckFailedException":
                 raise
-        print(f"[campaign_intake] patient sequence={sequence} patientId={patient['patientId']} status=PENDING")
+        print(f"[campaign_intake] patient row={sequence} patientId={patient_id} status=PENDING callMode={patient.get('callMode')}")
 
 
 def _create_schedule(scheduler, campaign_id: str, schedule_expression: str) -> None:
@@ -248,18 +298,20 @@ def handler(event: dict, context) -> dict:
     bucket = record["s3"]["bucket"]["name"]
     key = unquote_plus(record["s3"]["object"]["key"])
     campaign_id = _campaign_id_from_key(key)
-    table = boto3.resource("dynamodb").Table(os.environ["TABLE_NAME"])
+    batches_table = _batches_table()
+    patients_table = _patients_table()
     try:
         print(f"[campaign_intake] processing campaign={campaign_id}")
         s3 = boto3.client("s3")
         config = _load_config(s3, bucket, campaign_id)
+        config["s3Bucket"] = bucket
         local_time, call_time = _resolve_call_time(config)
-        patients = _load_patients(s3, bucket, campaign_id)
-        _write_state(table, campaign_id, patients, local_time, call_time, config)
+        patients = _load_patients(s3, bucket, campaign_id, config)
+        _write_state(batches_table, patients_table, campaign_id, patients, local_time, call_time, config)
         schedule_expression = _schedule_expression_utc(call_time)
         _create_schedule(boto3.client("scheduler"), campaign_id, schedule_expression)
         return {"campaignId": campaign_id, "patientCount": len(patients), "scheduleExpression": schedule_expression}
     except Exception as error:
-        _set_validation_failed(table, campaign_id, str(error))
+        _set_validation_failed(batches_table, campaign_id, str(error))
         print(f"[campaign_intake] FAILED campaign={campaign_id}: {type(error).__name__}: {error}")
         raise

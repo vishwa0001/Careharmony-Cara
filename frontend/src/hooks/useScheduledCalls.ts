@@ -7,7 +7,7 @@ import type {
   ValidationSummary,
 } from '../types/scheduledCalls.types';
 import { validateFileMetadata, validateScheduleTime } from '../utils/scheduledCalls.validation';
-import { getDefaultTimezone } from '../utils/timezone';
+import { getDefaultTimezone, localDateTimeInZoneToUtc } from '../utils/timezone';
 import { CONFIG } from '../config/constants';
 
 export function useScheduledCalls() {
@@ -71,6 +71,18 @@ export function useScheduledCalls() {
     return () => window.clearInterval(timer);
   }, [uploads, loadUploads]);
 
+  const parseAndValidateFile = async (file: File) => {
+    try {
+      setIsParsing(true);
+      const summary = await scheduledCallsService.validateCustomerSheet(file);
+      setValidationSummary(summary);
+    } catch (err) {
+      setErrorMessage('Unable to parse or validate spreadsheet structure.');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   // Handle File Selection
   const handleFileSelect = async (file: File | null) => {
     setSuccessMessage(null);
@@ -96,17 +108,8 @@ export function useScheduledCalls() {
     setMetaErrors([]);
     setMetaWarnings(metaCheck.warnings);
 
-    try {
-      setIsParsing(true);
-      const summary = await scheduledCallsService.validateCustomerSheet(file);
-      setValidationSummary(summary);
-    } catch (err) {
-      setErrorMessage('Unable to parse or validate spreadsheet structure.');
-    } finally {
-      setIsParsing(false);
-    }
+    await parseAndValidateFile(file);
   };
-
 
   // Handle Date/Time Selection
   const handleScheduleTimeChange = (dateTimeIso: string) => {
@@ -147,9 +150,14 @@ export function useScheduledCalls() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
+      const targetUtcDate = localDateTimeInZoneToUtc(scheduleTime, selectedTimezone);
+      const scheduledAtIso = targetUtcDate && !isNaN(targetUtcDate.getTime())
+        ? targetUtcDate.toISOString()
+        : scheduleTime;
+
       await scheduledCallsService.scheduleCustomerSheet({
         file: selectedFile,
-        scheduledAt: scheduleTime,
+        scheduledAt: scheduledAtIso,
         timezone: selectedTimezone,
         customerCount: validationSummary.totalRows,
         validationSummary,

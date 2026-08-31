@@ -48,9 +48,11 @@ export const ScheduledUploadDetailsDrawer: React.FC<ScheduledUploadDetailsDrawer
           </div>
 
           {/* Status Badge Banner */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Batch Status:</span>
-            <StatusBadge status={upload.status} />
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Batch Status:</span>
+              <StatusBadge status={upload.status} />
+            </div>
           </div>
 
           {/* Lineage References */}
@@ -188,15 +190,17 @@ export const ScheduledUploadDetailsDrawer: React.FC<ScheduledUploadDetailsDrawer
               </h3>
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {upload.patientResults.map((patient) => (
-                  <div key={patient.patientId} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
-                        {patient.customerName || patient.patientId}
+                  <div key={patient.patientId} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                          {patient.customerName || patient.patientId}
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 shrink-0">••••{patient.phoneLast4 || ''}</div>
                       </div>
-                      <div className="text-slate-500 dark:text-slate-400">••••{patient.phoneLast4 || ''}</div>
-                    </div>
-                    <div className="mt-1 text-slate-600 dark:text-slate-300">
-                      {patient.disposition || patient.status}
+                      <div className="mt-1 text-slate-600 dark:text-slate-300">
+                        {patient.disposition || patient.status}
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -55,6 +55,8 @@ export interface CampaignDispositionSummary {
 
 export interface CampaignPatientResult {
   patientId: string;
+  empi?: string;
+  contactId?: string;
   customerName?: string;
   phoneLast4?: string;
   status: string;
@@ -63,6 +65,8 @@ export interface CampaignPatientResult {
   attemptCount: number;
   completedAt?: string;
 }
+
+export type CallMode = 'NORMAL' | 'DIRECT_HUMAN_HANDOFF';
 
 export interface ScheduledUpload {
   id: string;
@@ -73,6 +77,8 @@ export interface ScheduledUpload {
   timezone: string;
   uploadedAt: string;
   status: UploadStatus;
+  callMode?: CallMode;
+  humanAgentPhoneNumber?: string;
   validationSummary?: ValidationSummary;
   summary?: CampaignDispositionSummary;
   patientResults?: CampaignPatientResult[];

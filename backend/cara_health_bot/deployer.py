@@ -1128,11 +1128,15 @@ class CaraHealthBotDeployer:
                 current_locale = self.lex.describe_bot_locale(
                     botId=bot_id, botVersion="DRAFT", localeId=self.cfg.locale
                 )
-                if current_locale.get("botLocaleStatus") not in {
-                    "NotBuilt", "Built", "ReadyExpressTesting", "Failed"
-                }:
-                    self._wait_draft_locale_stable(bot_id)
-                self.lex.update_bot_locale(**locale_request)
+                if current_locale.get("botLocaleStatus") == "Failed":
+                    self._reset_failed_locale_if_needed(bot_id, self.cfg.locale)
+                    self.lex.create_bot_locale(**locale_request)
+                else:
+                    if current_locale.get("botLocaleStatus") not in {
+                        "NotBuilt", "Built", "ReadyExpressTesting", "Failed"
+                    }:
+                        self._wait_draft_locale_stable(bot_id)
+                    self.lex.update_bot_locale(**locale_request)
             else:
                 self.lex.create_bot_locale(**locale_request)
             self._wait_draft_locale_stable(bot_id)
@@ -1763,6 +1767,23 @@ class CaraHealthBotDeployer:
             if self._is_error(error, "ResourceNotFoundException"):
                 return False
             raise
+
+    def _reset_failed_locale_if_needed(self, bot_id: str, locale_id: str = "en_US") -> None:
+        """Delete a Failed DRAFT locale so it can be recreated cleanly."""
+        try:
+            resp = self.lex.describe_bot_locale(botId=bot_id, botVersion="DRAFT", localeId=locale_id)
+            if resp.get("botLocaleStatus") == "Failed":
+                self.log(f"    Bot locale {locale_id} for bot {bot_id} is in Failed state — deleting to allow fresh create")
+                self.lex.delete_bot_locale(botId=bot_id, botVersion="DRAFT", localeId=locale_id)
+                for _ in range(30):
+                    try:
+                        self.lex.describe_bot_locale(botId=bot_id, botVersion="DRAFT", localeId=locale_id)
+                        time.sleep(2)
+                    except self.lex.exceptions.ResourceNotFoundException:
+                        break
+                self.log(f"    Bot locale {locale_id} deleted — will recreate fresh")
+        except self.lex.exceptions.ResourceNotFoundException:
+            pass
 
     def _wait_draft_locale_stable(self, bot_id: str) -> dict[str, Any]:
         return self._wait(

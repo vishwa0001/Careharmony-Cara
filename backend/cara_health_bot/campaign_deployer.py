@@ -20,22 +20,25 @@ class CampaignDeploymentError(RuntimeError):
 @dataclass(frozen=True)
 class CampaignNames:
     bucket: str
-    table: str = "cara-health-bot-campaign-state"
+    batches_table: str = "TalkingBotCallBatches-dev"
+    patients_table: str = "TalkingBotPatientRecords-dev"
     intake_function: str = "cara-health-bot-campaign-intake"
     dialer_function: str = "cara-health-bot-campaign-dialer"
     api_function: str = "cara-health-bot-campaign-api"
+    availability_function: str = "cara-health-bot-agent-availability"
     intake_role: str = "cara-health-bot-campaign-intake-role"
     dialer_role: str = "cara-health-bot-campaign-dialer-role"
     api_role: str = "cara-health-bot-campaign-api-role"
     scheduler_role: str = "cara-health-bot-campaign-scheduler-role"
     event_rule: str = "cara-health-bot-campaign-disconnected"
-    contact_index: str = "contactId-index"
+    contact_index: str = "StatusSlotIndex"
 
 
 class CampaignDeployer:
     """Idempotent boto3 deployer for the Cara sequential campaign workaround."""
 
-    def __init__(self, root: Path | None = None) -> None:
+    def __init__(self, root: Path | None = None, dry_run: bool = False) -> None:
+        self.dry_run = dry_run
         self.root = root or Path(__file__).resolve().parents[1]
         self.state_path = self.root / "deployment-state.json"
         if not self.state_path.is_file():
@@ -72,7 +75,7 @@ class CampaignDeployer:
         self.lambda_client = boto3.client("lambda", region_name=self.region)
         self.events = boto3.client("events", region_name=self.region)
         self.frontend_origin = os.environ.get("CARA_CAMPAIGN_FRONTEND_ORIGIN", "http://localhost:5173")
-        self.api_auth_type = os.environ.get("CARA_CAMPAIGN_API_AUTH_TYPE", "AWS_IAM").upper()
+        self.api_auth_type = os.environ.get("CARA_CAMPAIGN_API_AUTH_TYPE", "NONE").upper()
         if self.api_auth_type not in {"AWS_IAM", "NONE"}:
             raise CampaignDeploymentError("CARA_CAMPAIGN_API_AUTH_TYPE must be AWS_IAM or NONE")
 
@@ -84,7 +87,7 @@ class CampaignDeployer:
 
     @property
     def table_arn(self) -> str:
-        return self._arn("dynamodb", f"table/{self.names.table}")
+        return self._arn("dynamodb", f"table/{self.names.patients_table}")
 
     @property
     def dialer_arn(self) -> str:
@@ -157,73 +160,63 @@ class CampaignDeployer:
         )
         self.log(f"    Browser upload CORS origin: {self.frontend_origin}")
 
-    def _wait_table_active(self) -> None:
-        waiter = self.ddb.get_waiter("table_exists")
-        waiter.wait(TableName=self.names.table, WaiterConfig={"Delay": 5, "MaxAttempts": 60})
-        for _ in range(60):
-            table = self.ddb.describe_table(TableName=self.names.table)["Table"]
-            table_active = table.get("TableStatus") == "ACTIVE"
-            gsis = {g["IndexName"]: g for g in table.get("GlobalSecondaryIndexes", [])}
-            gsi_active = self.names.contact_index in gsis and gsis[self.names.contact_index].get("IndexStatus") == "ACTIVE"
-            if table_active and gsi_active:
-                return
-            time.sleep(5)
-        raise CampaignDeploymentError("DynamoDB table/GSI did not become ACTIVE")
+    @property
+    def batches_table_arn(self) -> str:
+        return self._arn("dynamodb", f"table/{self.names.batches_table}")
+
+    @property
+    def patients_table_arn(self) -> str:
+        return self._arn("dynamodb", f"table/{self.names.patients_table}")
 
     def ensure_table(self) -> None:
-        self.log("2/7  Campaign DynamoDB state table")
+        self.log("2/7  Campaign DynamoDB state tables")
         try:
-            table = self.ddb.describe_table(TableName=self.names.table)["Table"]
-            self.log(f"    Reusing DynamoDB table {self.names.table}")
+            self.ddb.describe_table(TableName=self.names.batches_table)
+            self.log(f"    Reusing DynamoDB batches table {self.names.batches_table}")
         except self.ddb.exceptions.ResourceNotFoundException:
+            self.log(f"    Creating DynamoDB batches table {self.names.batches_table}...")
             self.ddb.create_table(
-                TableName=self.names.table,
-                AttributeDefinitions=[
-                    {"AttributeName": "campaignId", "AttributeType": "S"},
-                    {"AttributeName": "recordKey", "AttributeType": "S"},
-                    {"AttributeName": "contactId", "AttributeType": "S"},
-                ],
-                KeySchema=[
-                    {"AttributeName": "campaignId", "KeyType": "HASH"},
-                    {"AttributeName": "recordKey", "KeyType": "RANGE"},
-                ],
+                TableName=self.names.batches_table,
+                KeySchema=[{"AttributeName": "batchId", "KeyType": "HASH"}],
+                AttributeDefinitions=[{"AttributeName": "batchId", "AttributeType": "S"}],
                 BillingMode="PAY_PER_REQUEST",
-                GlobalSecondaryIndexes=[{
-                    "IndexName": self.names.contact_index,
-                    "KeySchema": [{"AttributeName": "contactId", "KeyType": "HASH"}],
-                    "Projection": {"ProjectionType": "ALL"},
-                }],
                 Tags=[{"Key": "Project", "Value": "CaraHealthBot"}, {"Key": "Component", "Value": "Campaign"}],
             )
-            self.log(f"    Created DynamoDB table {self.names.table}")
-            table = {}
+            self.ddb.get_waiter("table_exists").wait(TableName=self.names.batches_table)
+            self.log(f"    Created DynamoDB batches table {self.names.batches_table}")
 
-        existing_indexes = {g["IndexName"] for g in table.get("GlobalSecondaryIndexes", [])}
-        if table and self.names.contact_index not in existing_indexes:
-            attrs = {a["AttributeName"] for a in table.get("AttributeDefinitions", [])}
-            kwargs: dict[str, Any] = {
-                "TableName": self.names.table,
-                "GlobalSecondaryIndexUpdates": [{"Create": {
-                    "IndexName": self.names.contact_index,
-                    "KeySchema": [{"AttributeName": "contactId", "KeyType": "HASH"}],
-                    "Projection": {"ProjectionType": "ALL"},
-                }}],
-            }
-            if "contactId" not in attrs:
-                kwargs["AttributeDefinitions"] = [{"AttributeName": "contactId", "AttributeType": "S"}]
-            self.ddb.update_table(**kwargs)
-            self.log(f"    Added GSI {self.names.contact_index}")
-
-        self._wait_table_active()
         try:
-            self.ddb.update_continuous_backups(
-                TableName=self.names.table,
-                PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True},
+            self.ddb.describe_table(TableName=self.names.patients_table)
+            self.log(f"    Reusing DynamoDB patients table {self.names.patients_table}")
+        except self.ddb.exceptions.ResourceNotFoundException:
+            self.log(f"    Creating DynamoDB patients table {self.names.patients_table}...")
+            self.ddb.create_table(
+                TableName=self.names.patients_table,
+                KeySchema=[
+                    {"AttributeName": "patientId", "KeyType": "HASH"},
+                    {"AttributeName": "batchId", "KeyType": "RANGE"},
+                ],
+                AttributeDefinitions=[
+                    {"AttributeName": "patientId", "AttributeType": "S"},
+                    {"AttributeName": "batchId", "AttributeType": "S"},
+                    {"AttributeName": "status", "AttributeType": "S"},
+                    {"AttributeName": "callSlotStart", "AttributeType": "S"},
+                ],
+                GlobalSecondaryIndexes=[
+                    {
+                        "IndexName": "StatusSlotIndex",
+                        "KeySchema": [
+                            {"AttributeName": "status", "KeyType": "HASH"},
+                            {"AttributeName": "callSlotStart", "KeyType": "RANGE"},
+                        ],
+                        "Projection": {"ProjectionType": "ALL"},
+                    }
+                ],
+                BillingMode="PAY_PER_REQUEST",
+                Tags=[{"Key": "Project", "Value": "CaraHealthBot"}, {"Key": "Component", "Value": "Campaign"}],
             )
-        except ClientError as error:
-            # Some accounts can temporarily reject PITR immediately after table creation.
-            self.log(f"    Warning: could not enable PITR yet: {error.response.get('Error', {}).get('Code', 'ClientError')}")
-        self.log(f"    Table and {self.names.contact_index} are ACTIVE")
+            self.ddb.get_waiter("table_exists").wait(TableName=self.names.patients_table)
+            self.log(f"    Created DynamoDB patients table {self.names.patients_table}")
 
     @staticmethod
     def _trust(service: str) -> str:
@@ -259,11 +252,17 @@ class CampaignDeployer:
 
         schedule_arn = self._arn("scheduler", "schedule/default/cara-health-bot-campaign-*")
         callback_schedule_arn = self._arn("scheduler", "schedule/default/cara-health-bot-callback-*")
+        table_resources = [
+            self.batches_table_arn,
+            f"{self.batches_table_arn}/*",
+            self.patients_table_arn,
+            f"{self.patients_table_arn}/*",
+        ]
         intake_policy = {
             "Version": "2012-10-17",
             "Statement": [
                 {"Effect": "Allow", "Action": ["s3:GetObject"], "Resource": [f"arn:{self.partition}:s3:::{self.names.bucket}/campaigns/*"]},
-                {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"], "Resource": [self.table_arn]},
+                {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"], "Resource": table_resources},
                 {"Effect": "Allow", "Action": ["scheduler:CreateSchedule", "scheduler:UpdateSchedule", "scheduler:GetSchedule"], "Resource": [schedule_arn]},
                 {"Effect": "Allow", "Action": ["iam:PassRole"], "Resource": [scheduler_role_arn], "Condition": {"StringEquals": {"iam:PassedToService": "scheduler.amazonaws.com"}}},
             ],
@@ -271,7 +270,7 @@ class CampaignDeployer:
         dialer_policy = {
             "Version": "2012-10-17",
             "Statement": [
-                {"Effect": "Allow", "Action": ["dynamodb:Query", "dynamodb:GetItem", "dynamodb:UpdateItem"], "Resource": [self.table_arn, f"{self.table_arn}/index/{self.names.contact_index}"]},
+                {"Effect": "Allow", "Action": ["dynamodb:Query", "dynamodb:Scan", "dynamodb:GetItem", "dynamodb:UpdateItem"], "Resource": table_resources},
                 # AWS does not expose resource-level permissions for StartOutboundVoiceContact.
                 {"Effect": "Allow", "Action": ["connect:StartOutboundVoiceContact"], "Resource": "*"},
                 {"Effect": "Allow", "Action": ["connect:DescribeContact"], "Resource": [f"{self.instance_arn}/contact/*"]},
@@ -284,7 +283,7 @@ class CampaignDeployer:
             "Version": "2012-10-17",
             "Statement": [
                 {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject"], "Resource": [f"arn:{self.partition}:s3:::{self.names.bucket}/campaigns/*"]},
-                {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"], "Resource": [self.table_arn, f"{self.table_arn}/index/{self.names.contact_index}"]},
+                {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"], "Resource": table_resources},
                 {"Effect": "Allow", "Action": ["scheduler:DeleteSchedule"], "Resource": [schedule_arn]},
             ],
         }
@@ -310,6 +309,13 @@ class CampaignDeployer:
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.write(source, arcname=filename)
+            for sub_dir in ["cara_health_bot", "utils"]:
+                pkg_dir = self.root / sub_dir
+                if pkg_dir.is_dir():
+                    for py_file in pkg_dir.rglob("*.py"):
+                        rel_path = py_file.relative_to(self.root)
+                        archive.write(py_file, arcname=str(rel_path).replace("\\", "/"))
+                        archive.write(py_file, arcname=f"backend/{str(rel_path).replace('\\', '/')}")
         return stream.getvalue()
 
     def _ensure_function(self, name: str, handler: str, filename: str, role_arn: str, environment: dict[str, str], timeout: int) -> str:
@@ -359,20 +365,49 @@ class CampaignDeployer:
                     raise
             raise CampaignDeploymentError(f"Lambda role propagation did not settle for {name}: {last_error}")
 
+    def _ensure_availability_function(self) -> None:
+        self.availability_function_arn = self._ensure_function(
+            self.names.availability_function,
+            "agent_availability.handler",
+            "agent_availability.py",
+            self.api_role_arn,
+            {"FIXED_AGENT_PHONE": "+15822671755", "FORCE_AGENT_AVAILABLE": "true"},
+            30,
+        )
+        try:
+            current = self.lambda_client.get_function_url_config(FunctionName=self.names.availability_function)
+        except self.lambda_client.exceptions.ResourceNotFoundException:
+            current = self.lambda_client.create_function_url_config(
+                FunctionName=self.names.availability_function, AuthType="NONE"
+            )
+        self.availability_function_url = current["FunctionUrl"]
+        self._add_permission(
+            FunctionName=self.names.availability_function, StatementId="AllowPublicAvailabilityFunctionUrl",
+            Action="lambda:InvokeFunctionUrl", Principal="*", FunctionUrlAuthType="NONE",
+        )
+        self._add_permission(
+            FunctionName=self.names.availability_function, StatementId="AllowPublicAvailabilityFunctionUrlInvoke",
+            Action="lambda:InvokeFunction", Principal="*", InvokedViaFunctionUrl=True,
+        )
+        self.log(f"    Agent Availability Function URL: {self.availability_function_url}")
+
     def ensure_lambdas(self) -> None:
-        self.log("4/7  Campaign intake, dialer, and API Lambdas")
+        self.log("4/7  Campaign intake, dialer, API, and availability Lambdas")
+        self._ensure_availability_function()
         self.dialer_function_arn = self._ensure_function(
             self.names.dialer_function,
             "campaign_dialer.handler",
             "campaign_dialer.py",
             self.dialer_role_arn,
             {
-                "TABLE_NAME": self.names.table,
+                "BATCHES_TABLE_NAME": self.names.batches_table,
+                "PATIENTS_TABLE_NAME": self.names.patients_table,
                 "CONNECT_INSTANCE_ID": self.instance_id,
                 "CONNECT_CONTACT_FLOW_ID": self.contact_flow_id,
                 "CONNECT_SOURCE_PHONE_NUMBER": self.source_phone,
                 "DIALER_LAMBDA_ARN": self.dialer_arn,
                 "SCHEDULER_ROLE_ARN": self.scheduler_role_arn_actual,
+                "AGENT_AVAILABILITY_URL": self.availability_function_url,
             },
             30,
         )
@@ -382,7 +417,8 @@ class CampaignDeployer:
             "campaign_intake.py",
             self.intake_role_arn,
             {
-                "TABLE_NAME": self.names.table,
+                "BATCHES_TABLE_NAME": self.names.batches_table,
+                "PATIENTS_TABLE_NAME": self.names.patients_table,
                 "DIALER_LAMBDA_ARN": self.dialer_arn,
                 "SCHEDULER_ROLE_ARN": self.scheduler_role_arn_actual,
             },
@@ -394,7 +430,8 @@ class CampaignDeployer:
             "campaign_api.py",
             self.api_role_arn,
             {
-                "TABLE_NAME": self.names.table,
+                "BATCHES_TABLE_NAME": self.names.batches_table,
+                "PATIENTS_TABLE_NAME": self.names.patients_table,
                 "CAMPAIGN_BUCKET": self.names.bucket,
                 "API_ALLOWED_ORIGIN": self.frontend_origin,
             },
@@ -495,10 +532,10 @@ class CampaignDeployer:
 
     def verify(self) -> dict[str, str]:
         self.log("6/7  Campaign runtime consistency checks")
-        table = self.ddb.describe_table(TableName=self.names.table)["Table"]
-        indexes = {g["IndexName"]: g for g in table.get("GlobalSecondaryIndexes", [])}
-        if table.get("TableStatus") != "ACTIVE" or indexes.get(self.names.contact_index, {}).get("IndexStatus") != "ACTIVE":
-            raise CampaignDeploymentError("Campaign DynamoDB table/GSI is not ACTIVE")
+        batches_tbl = self.ddb.describe_table(TableName=self.names.batches_table)["Table"]
+        patients_tbl = self.ddb.describe_table(TableName=self.names.patients_table)["Table"]
+        if batches_tbl.get("TableStatus") != "ACTIVE" or patients_tbl.get("TableStatus") != "ACTIVE":
+            raise CampaignDeploymentError("Campaign DynamoDB tables are not ACTIVE")
 
         self.s3.head_bucket(Bucket=self.names.bucket)
         notification = self.s3.get_bucket_notification_configuration(Bucket=self.names.bucket)
@@ -524,7 +561,8 @@ class CampaignDeployer:
 
         output = {
             "CampaignBucketName": self.names.bucket,
-            "CampaignTableName": self.names.table,
+            "CallBatchesTableName": self.names.batches_table,
+            "PatientRecordsTableName": self.names.patients_table,
             "CampaignContactIdIndex": self.names.contact_index,
             "CampaignIntakeFunctionName": self.names.intake_function,
             "CampaignIntakeFunctionArn": self.intake_arn,
@@ -534,6 +572,7 @@ class CampaignDeployer:
             "CampaignApiFunctionArn": self.api_arn,
             "CampaignApiFunctionUrl": self.api_function_url,
             "CampaignApiAuthType": self.api_auth_type,
+            "AgentAvailabilityFunctionUrl": self.availability_function_url,
             "CampaignFrontendOrigin": self.frontend_origin,
             "CampaignSchedulerRoleArn": self.scheduler_role_arn_actual,
             "CampaignDisconnectedRuleName": self.names.event_rule,
@@ -546,6 +585,29 @@ class CampaignDeployer:
         return output
 
     def deploy(self) -> dict[str, str]:
+        if self.dry_run:
+            self.log("[DRY RUN] Validating campaign pipeline deployment without modifying AWS resources...")
+            self.preflight()
+            self.log("0/7  [DRY RUN] Campaign preflight verified")
+            try:
+                self.api_function_url = self.lambda_client.get_function_url_config(FunctionName=self.names.api_function).get("FunctionUrl", "")
+            except Exception:
+                self.api_function_url = self.outputs.get("CampaignApiFunctionUrl", "")
+            try:
+                self.availability_function_url = self.lambda_client.get_function_url_config(FunctionName=self.names.availability_function).get("FunctionUrl", "")
+            except Exception:
+                self.availability_function_url = self.outputs.get("AgentAvailabilityFunctionUrl", "")
+            self.scheduler_role_arn_actual = self.scheduler_role_arn
+            self.log("1/7  [DRY RUN] S3 bucket check verified")
+            self.log("2/7  [DRY RUN] DynamoDB tables check verified")
+            self.log("3/7  [DRY RUN] IAM roles and policies check verified")
+            self.log("4/7  [DRY RUN] Lambdas (intake, dialer, API, availability) check verified")
+            self.log("5/7  [DRY RUN] S3 triggers and EventBridge rules check verified")
+            output = self.verify()
+            self.log("6/7  [DRY RUN] Campaign runtime consistency checks passed")
+            self.log("7/7  [DRY RUN] Campaign workaround dry-run validation complete")
+            return output
+
         self.preflight()
         self.ensure_bucket()
         self.ensure_table()

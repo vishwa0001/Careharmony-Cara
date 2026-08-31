@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CalendarClock, Globe, Loader2, RefreshCw, X } from 'lucide-react';
 import type { ScheduledUpload, ValidationSummary } from '../../../types/scheduledCalls.types';
 import { scheduledCallsService } from '../../../services/scheduledCalls.service';
-import { getDefaultTimezone, getTimezoneOptions } from '../../../utils/timezone';
+import { getDefaultTimezone, getTimezoneOptions, localDateTimeInZoneToUtc } from '../../../utils/timezone';
 import { validateFileMetadata, validateScheduleTime } from '../../../utils/scheduledCalls.validation';
 import { CustomerSheetUpload } from './CustomerSheetUpload';
 import { ValidationSummaryCallout } from './ValidationSummaryCallout';
@@ -64,14 +64,12 @@ export const ReuploadModal: React.FC<ReuploadModalProps> = ({
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
+    setNewScheduleTime(rawVal);
     if (!rawVal) {
-      setNewScheduleTime('');
       setTimeError('Please select a new schedule time.');
       return;
     }
-    const iso = new Date(rawVal).toISOString();
-    setNewScheduleTime(iso);
-    const check = validateScheduleTime(iso);
+    const check = validateScheduleTime(rawVal, selectedTimezone);
     setTimeError(check.isValid ? null : check.error || 'Invalid schedule time.');
   };
 
@@ -81,10 +79,21 @@ export const ReuploadModal: React.FC<ReuploadModalProps> = ({
       return;
     }
 
+    const check = validateScheduleTime(newScheduleTime, selectedTimezone);
+    if (!check.isValid) {
+      setTimeError(check.error || 'Invalid schedule time.');
+      return;
+    }
+
+    const targetUtcDate = localDateTimeInZoneToUtc(newScheduleTime, selectedTimezone);
+    const scheduledAtIso = targetUtcDate && !isNaN(targetUtcDate.getTime())
+      ? targetUtcDate.toISOString()
+      : newScheduleTime;
+
     await onConfirmReupload(
       targetRecord.id,
       replacementFile,
-      newScheduleTime,
+      scheduledAtIso,
       selectedTimezone,
       validationSummary.totalRows,
       validationSummary

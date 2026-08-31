@@ -3,8 +3,14 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import sys
 import unittest
+from pathlib import Path
 from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from botocore.exceptions import ClientError
 
@@ -364,8 +370,8 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertEqual(q_errors["NoMatchingCondition"], "b0000000-0000-4000-8000-000000000001")
         transfer_context = actions["b0000000-0000-4000-8000-000000000005"]
         self.assertEqual(transfer_context["Parameters"]["Attributes"]["conversationState"], "TRANSFER_READY")
-        self.assertEqual(transfer_context["Transitions"]["NextAction"], "90000000-0000-4000-8000-000000000003")
-        self.assertEqual(actions["90000000-0000-4000-8000-000000000002"]["Type"], "TransferContactToQueue")
+        self.assertEqual(transfer_context["Transitions"]["NextAction"], "b0000000-0000-4000-8000-000000000010")
+        self.assertEqual(actions["b0000000-0000-4000-8000-000000000010"]["Type"], "InvokeLambdaFunction")
 
     def test_cara_callback_and_end_outcomes_are_persisted(self):
         actions = {a["Identifier"]: a for a in self._flow()["Actions"]}
@@ -617,6 +623,11 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         )
         voice = next(a for a in actions if a["Identifier"] == "22222222-2222-4222-8222-222222222222")
         self.assertEqual(voice["Transitions"]["NextAction"], recording["Identifier"])
+        callmode_block = next(a for a in actions if a["Identifier"] == recording["Transitions"]["NextAction"])
+        self.assertEqual(callmode_block["Type"], "Compare")
+        identity_msg = next(a for a in actions if a["Identifier"] == callmode_block["Transitions"]["NextAction"])
+        self.assertEqual(identity_msg["Type"], "ConnectParticipantWithLexBot")
+        self.assertEqual(identity_msg["Parameters"]["LexSessionAttributes"]["caraHealthBotPhase"], "identity-1")
 
     def test_cara_business_wording_is_configurable(self):
         cara = self.cfg.cara_behavior
