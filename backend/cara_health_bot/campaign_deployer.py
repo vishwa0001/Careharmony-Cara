@@ -151,14 +151,14 @@ class CampaignDeployer:
         self.s3.put_bucket_cors(
             Bucket=self.names.bucket,
             CORSConfiguration={"CORSRules": [{
-                "AllowedOrigins": [self.frontend_origin],
-                "AllowedMethods": ["PUT", "HEAD"],
-                "AllowedHeaders": ["content-type"],
+                "AllowedOrigins": ["*"],
+                "AllowedMethods": ["PUT", "HEAD", "GET"],
+                "AllowedHeaders": ["*"],
                 "ExposeHeaders": ["ETag"],
-                "MaxAgeSeconds": 900,
+                "MaxAgeSeconds": 3600,
             }]},
         )
-        self.log(f"    Browser upload CORS origin: {self.frontend_origin}")
+        self.log(f"    Browser upload CORS origin: *")
 
     @property
     def batches_table_arn(self) -> str:
@@ -442,14 +442,14 @@ class CampaignDeployer:
     def _ensure_api_function_url(self) -> None:
         try:
             current = self.lambda_client.get_function_url_config(FunctionName=self.names.api_function)
-            if current.get("AuthType") != self.api_auth_type:
+            if current.get("AuthType") != self.api_auth_type or current.get("Cors"):
                 current = self.lambda_client.update_function_url_config(
-                    FunctionName=self.names.api_function, AuthType=self.api_auth_type
+                    FunctionName=self.names.api_function, AuthType=self.api_auth_type, Cors={}
                 )
             self.api_function_url = current["FunctionUrl"]
         except self.lambda_client.exceptions.ResourceNotFoundException:
             current = self.lambda_client.create_function_url_config(
-                FunctionName=self.names.api_function, AuthType=self.api_auth_type
+                FunctionName=self.names.api_function, AuthType=self.api_auth_type, Cors={}
             )
             self.api_function_url = current["FunctionUrl"]
 

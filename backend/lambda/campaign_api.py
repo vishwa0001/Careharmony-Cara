@@ -36,31 +36,40 @@ def _json_default(value: Any):
     raise TypeError(f"not JSON serializable: {type(value).__name__}")
 
 
-def _response(status: int, body: Any) -> dict[str, Any]:
-    origin = os.environ.get("API_ALLOWED_ORIGIN", "http://localhost:5173")
+def _resolve_origin(event: dict | None = None) -> str:
+    if isinstance(event, dict):
+        headers = event.get("headers") or {}
+        req_origin = headers.get("origin") or headers.get("Origin")
+        if req_origin:
+            return req_origin
+    return os.environ.get("API_ALLOWED_ORIGIN", "*")
+
+
+def _response(status: int, body: Any, event: dict | None = None) -> dict[str, Any]:
+    origin = _resolve_origin(event)
     return {
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Headers": "content-type,authorization",
-            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Headers": "content-type,authorization,accept",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
             "Vary": "Origin",
         },
         "body": json.dumps(body, default=_json_default),
     }
 
 
-def _csv_response(status: int, csv_body: str, filename: str) -> dict[str, Any]:
-    origin = os.environ.get("API_ALLOWED_ORIGIN", "http://localhost:5173")
+def _csv_response(status: int, csv_body: str, filename: str, event: dict | None = None) -> dict[str, Any]:
+    origin = _resolve_origin(event)
     return {
         "statusCode": status,
         "headers": {
             "Content-Type": "text/csv; charset=utf-8",
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Headers": "content-type,authorization",
-            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Headers": "content-type,authorization,accept",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
             "Vary": "Origin",
         },
         "body": csv_body,
@@ -631,57 +640,57 @@ def handler(event: dict, context) -> dict:
         method = _method(event)
         path = _path(event)
         if method == "OPTIONS":
-            return _response(204, {})
+            return _response(204, {}, event)
         if method == "POST" and path == "/uploads":
-            return _response(201, _create_upload(_body(event)))
+            return _response(201, _create_upload(_body(event)), event)
         if method == "GET" and path == "/campaigns":
-            return _response(200, _list_campaigns(event))
+            return _response(200, _list_campaigns(event), event)
 
         campaign_export_match = re.fullmatch(r"/campaigns/([A-Za-z0-9._-]{1,80})/export", path)
         if campaign_export_match:
             if method == "GET":
                 campaign_id = campaign_export_match.group(1)
                 return _export_campaign_csv(campaign_id, event)
-            return _response(405, {"error": "Method not allowed"})
+            return _response(405, {"error": "Method not allowed"}, event)
 
         export_match = re.fullmatch(r"/campaigns/([A-Za-z0-9._-]{1,80})/patients/([A-Za-z0-9._-]{1,80})/export", path)
         if export_match:
             if method == "GET":
                 campaign_id, patient_id = export_match.groups()
                 return _export_patient_csv(campaign_id, patient_id, event)
-            return _response(405, {"error": "Method not allowed"})
+            return _response(405, {"error": "Method not allowed"}, event)
 
         match = re.fullmatch(r"/campaigns/([A-Za-z0-9._-]{1,80})(?:/(patients|cancel|reschedule|export))?", path)
         if not match:
-            return _response(404, {"error": "Not found"})
+            return _response(404, {"error": "Not found"}, event)
         campaign_id, action = match.groups()
         if method == "GET" and action == "export":
             return _export_campaign_csv(campaign_id, event)
         if method == "GET" and action is None:
             item = _detail(campaign_id)
-            return _response(200, item) if item else _response(404, {"error": "Campaign not found"})
+            return _response(200, item, event) if item else _response(404, {"error": "Campaign not found"}, event)
         if method == "GET" and action == "patients":
             try:
-                return _response(200, _patient_list(campaign_id))
+                return _response(200, _patient_list(campaign_id), event)
             except KeyError:
-                return _response(404, {"error": "Campaign not found"})
+                return _response(404, {"error": "Campaign not found"}, event)
         if method == "POST" and action == "cancel":
             try:
-                return _response(200, _cancel(campaign_id, _body(event)))
+                return _response(200, _cancel(campaign_id, _body(event)), event)
             except KeyError:
-                return _response(404, {"error": "Campaign not found"})
+                return _response(404, {"error": "Campaign not found"}, event)
             except RuntimeError as exc:
-                return _response(409, {"error": str(exc)})
+                return _response(409, {"error": str(exc)}, event)
         if method == "POST" and action == "reschedule":
             try:
-                return _response(201, _reschedule(campaign_id, _body(event)))
+                return _response(201, _reschedule(campaign_id, _body(event)), event)
             except KeyError:
-                return _response(404, {"error": "Campaign not found"})
+                return _response(404, {"error": "Campaign not found"}, event)
             except RuntimeError as exc:
-                return _response(409, {"error": str(exc)})
-        return _response(405, {"error": "Method not allowed"})
+                return _response(409, {"error": str(exc)}, event)
+        return _response(405, {"error": "Method not allowed"}, event)
     except (ValueError, json.JSONDecodeError) as exc:
-        return _response(400, {"error": str(exc)})
+        return _response(400, {"error": str(exc)}, event)
     except Exception as exc:
         print(f"[campaign_api] FAILED {type(exc).__name__}: {exc}")
-        return _response(500, {"error": "Campaign API request failed"})
+        return _response(500, {"error": "Campaign API request failed"}, event)
