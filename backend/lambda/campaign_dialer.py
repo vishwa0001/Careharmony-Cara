@@ -670,15 +670,12 @@ _DURATION_NUMBER_WORDS = {
 }
 
 
-
-
 def _parse_relative_duration(text: str) -> dt.timedelta | None:
     value = (text or "").lower().strip()
     if not value or not re.search(r"\b(in|after)\b", value):
         return None
     if re.search(r"\bhalf\s+an?\s+hour\b", value):
         return dt.timedelta(minutes=30)
-
 
     number_pattern = r"(\d+|" + "|".join(_DURATION_NUMBER_WORDS) + r")"
     hours = 0
@@ -694,6 +691,7 @@ def _parse_relative_duration(text: str) -> dt.timedelta | None:
     if hours == 0 and minutes == 0:
         return None
     return dt.timedelta(hours=hours, minutes=minutes)
+
 
 def _parse_callback_when(raw: str, timezone_name: str, now: dt.datetime | None = None) -> dt.datetime | None:
     """Parse the common exact callback forms Cara already accepts conversationally.

@@ -76,5 +76,27 @@ Fix:
 3. AI Prompt: Removed the pre-filled `<message>` tag in the assistant role of `prompts/life-coach.yaml` to prevent forcing text-generation mode over tool invocation on safety turns.
 
 
+## Callback relative-time phrasing was never actually scheduled
+
+Live test calls showed a confirmed patient asking "call me back in 1 hour" (or "in 10 minutes," "after 5 minutes"), Cara acknowledging the request, but no callback ever happening. `prompts/life-coach.yaml` explicitly instructs Cara to accept exactly this kind of phrasing (the `RequestCallback` tool examples include "in 10 minutes" and "after five minutes"), but the scheduler-side parser in `lambda/campaign_dialer.py` (`_parse_callback_when`) only understood clock times ("10 AM") and relative days ("tomorrow"). A relative duration silently failed to parse, the request was logged as "callback time unspecified," and no EventBridge schedule was ever created.
+
+Fix: added `_parse_relative_duration` to `campaign_dialer.py`, checked before the existing clock-time parsing. It recognizes "in/after + N minutes/hours" (numeric or spelled out, e.g. "an hour," "half an hour," "1 hour and 30 minutes") and computes the real callback time from the current moment. Vague durations ("in a bit," "later today") still fall through to the existing unscheduled path, unchanged.
+
+## Family member/representative offering to speak for the patient was a dead end
+
+Live test calls showed that when a caller identified as a family member or caregiver and offered to speak on the patient's behalf ("No, I'm his brother, you can talk to me," or later, "I can talk on his behalf" in reply to the availability question), the bot either asked an unrelated follow-up question or hit `AvailabilityUnknown`/`FallbackIntent` and ended the call — the offer itself was never recognized.
+
+Decision: any such claim (family member, guardian, or professional caregiver/POA) is acknowledged and connected straight to a human agent, with no further questions and no verification attempted by the bot — verification is left to the human agent, the same way it would be if a person answered the phone.
+
+Fix:
+- Broadened `RepresentativeDetected` (identity bot, `cara_health_bot/builders.py`) to also recognize family/guardian phrasing combined with an offer to proceed, not just formal caregiver/POA language.
+- Added a new intent, `RepresentativeWillingToProceed`, to the availability bot for when the same offer comes up after already being asked "is Alex available?" (both the first attempt and the retry).
+- `contact-flows/cara-health-bot-flow.json`: this outcome now tags the call (`recipientType: REPRESENTATIVE`), plays the existing transfer acknowledgment (`${IdentitySuccessTransferMessage}`), then goes into the same agent-availability-check-and-transfer chain already used elsewhere (`b0000000-...010` onward) — not a new/separate transfer mechanism.
+- A third party who is only relaying information without offering to speak for the patient ("he's not home," "let me get him") is unaffected — still goes through the existing availability/callback flow.
+
+## Known issue: `scripts/validate.py` is currently out of date
+
+`scripts/validate.py` fails today with `assert len(compares) == 8` (around line 139), independent of the two fixes above — confirmed with `git stash` that this fails on a clean checkout of this branch too, before any of that work. The flow currently has 9 `Compare` actions; a new one (the `checkAgentAvailability` check feeding the human-agent transfer) was added without updating this hardcoded count. Worth fixing so this script can be trusted as a pre-deploy check again.
+
 
 
