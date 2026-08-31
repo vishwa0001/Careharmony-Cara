@@ -152,7 +152,9 @@ function findMatchingHeader(
 /**
  * Validates spreadsheet structure and individual customer record rows.
  */
-export function validateSheetContent(parsedData: ParsedSheetData): ValidationSummary {
+export function validateSheetContent(
+  parsedData: ParsedSheetData
+): ValidationSummary {
   const { headers, rows, rawRowCount } = parsedData;
   const errors: ValidationError[] = [];
   let errorCount = 0;
@@ -169,6 +171,8 @@ export function validateSheetContent(parsedData: ParsedSheetData): ValidationSum
       missingHeaders.push(req);
     }
   });
+
+  const directAgentHeader = findMatchingHeader(headers, 'direct_agent') || findMatchingHeader(headers, 'direct agent');
 
   const requiredColumnsPresent = missingHeaders.length === 0;
   if (!requiredColumnsPresent) {
@@ -288,16 +292,30 @@ export function validateSheetContent(parsedData: ParsedSheetData): ValidationSum
 
         const cleanPhone = sanitizePhoneNumber(phoneVal);
         if (seenPhones.has(cleanPhone)) {
-        //  errors.push({
-        //    row: rowNum,
-        //    column: foundHeaders['phone_number'],
-        //    message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
-        //    type: 'FATAL',
-        //  });
-        //  errorCount++;
-        //  noDuplicatePhones = false;
+          errors.push({
+            row: rowNum,
+            column: foundHeaders['phone_number'],
+            message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
+            type: 'FATAL',
+          });
+          errorCount++;
+          noDuplicatePhones = false;
         } else {
           seenPhones.add(cleanPhone);
+        }
+      }
+
+      // Per-row 'direct agent' column validation
+      if (directAgentHeader && row[directAgentHeader] !== undefined) {
+        const rawDirectVal = String(row[directAgentHeader] ?? '').trim().toLowerCase();
+        if (rawDirectVal !== '' && rawDirectVal !== 'yes' && rawDirectVal !== 'no') {
+          errors.push({
+            row: rowNum,
+            column: directAgentHeader,
+            message: `Row ${rowNum}: Invalid direct agent value ('${row[directAgentHeader]}'). Expected 'yes' or 'no'.`,
+            type: 'FATAL',
+          });
+          errorCount++;
         }
       }
     });
@@ -335,10 +353,16 @@ export function validateScheduleTime(scheduleTimeIso: string, timezone?: string)
     };
   }
 
-  const selectedDate = timezone
-    ? localDateTimeInZoneToUtc(scheduleTimeIso, timezone)
-    : new Date(scheduleTimeIso);
+  const ianaZone = timezone || 'Asia/Kolkata';
+  const selectedDate = localDateTimeInZoneToUtc(scheduleTimeIso, ianaZone);
+
   if (isNaN(selectedDate.getTime())) {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(scheduleTimeIso)) {
+      return {
+        isValid: false,
+        error: 'Selected time does not exist in the chosen timezone due to Daylight Saving Time adjustment.',
+      };
+    }
     return {
       isValid: false,
       error: 'Invalid date/time format.',
@@ -346,7 +370,7 @@ export function validateScheduleTime(scheduleTimeIso: string, timezone?: string)
   }
 
   const now = new Date();
-  if (selectedDate <= now) {
+  if (selectedDate.getTime() <= now.getTime()) {
     return {
       isValid: false,
       error: 'Scheduled time must be in the future.',
@@ -363,5 +387,12 @@ export function validateScheduleTime(scheduleTimeIso: string, timezone?: string)
     };
   }
 
+  return { isValid: true };
+}
+
+/**
+ * Legacy validator maintained for signature compatibility.
+ */
+export function validateHumanAgentPhone(): { isValid: boolean } {
   return { isValid: true };
 }

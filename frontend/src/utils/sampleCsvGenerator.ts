@@ -7,6 +7,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101001',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    direct_agent: 'yes',
   },
   {
     empi: 'TESTPT-0000',
@@ -16,6 +17,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101002',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    direct_agent: 'no',
   },
   {
     empi: 'TESTPT-0000',
@@ -25,6 +27,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101003',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    direct_agent: 'yes',
   },
   {
     empi: 'TESTPT-0000',
@@ -34,6 +37,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101004',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    direct_agent: 'no',
   },
   {
     empi: 'TESTPT-0000',
@@ -43,6 +47,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101005',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    direct_agent: 'yes',
   },
 ];
 
@@ -57,7 +62,7 @@ function escapeCsvField(val: string): string {
 }
 
 /**
- * Generates sample CSV string content.
+ * Generates unified sample CSV string content.
  */
 export function generateSampleCsvContent(): string {
   const headers = [
@@ -68,6 +73,7 @@ export function generateSampleCsvContent(): string {
     'phone_number',
     'practice_name',
     'practice_callback_number',
+    'direct agent',
   ];
   const lines = [headers.join(',')];
 
@@ -80,6 +86,7 @@ export function generateSampleCsvContent(): string {
       escapeCsvField(rec.phone_number),
       escapeCsvField(rec.practice_name),
       escapeCsvField(rec.practice_callback_number),
+      escapeCsvField(rec.direct_agent),
     ];
     lines.push(row.join(','));
   });
@@ -90,7 +97,9 @@ export function generateSampleCsvContent(): string {
 /**
  * Triggers a browser download of the sample customer sheet .csv file.
  */
-export function downloadSampleCsv(filename = 'sample_customer_calling_list.csv'): void {
+export function downloadSampleCsv(
+  filename = 'sample_customer_calling_list.csv'
+): void {
   const csvContent = generateSampleCsvContent();
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

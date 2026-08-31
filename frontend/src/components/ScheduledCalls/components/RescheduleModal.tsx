@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CalendarClock, FileText, Globe, Loader2, RotateCcw, Search, Users, X } from 'lucide-react';
 import type { ScheduledUpload } from '../../../types/scheduledCalls.types';
-import { formatDateTimeInZone, getDefaultTimezone, getTimezoneOptions } from '../../../utils/timezone';
+import { formatDateTimeInZone, getDefaultTimezone, getTimezoneOptions, localDateTimeInZoneToUtc } from '../../../utils/timezone';
 import { validateScheduleTime } from '../../../utils/scheduledCalls.validation';
 
 interface RescheduleModalProps {
@@ -32,14 +32,12 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
+    setNewScheduleTime(rawVal);
     if (!rawVal) {
-      setNewScheduleTime('');
       setTimeError('Please select a new schedule time.');
       return;
     }
-    const iso = new Date(rawVal).toISOString();
-    setNewScheduleTime(iso);
-    const check = validateScheduleTime(iso);
+    const check = validateScheduleTime(rawVal, selectedTimezone);
     setTimeError(check.isValid ? null : check.error || 'Invalid schedule time.');
   };
 
@@ -49,13 +47,18 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
       setTimeError('Please select a new schedule time.');
       return;
     }
-    const check = validateScheduleTime(newScheduleTime);
+    const check = validateScheduleTime(newScheduleTime, selectedTimezone);
     if (!check.isValid) {
       setTimeError(check.error || 'Invalid schedule time.');
       return;
     }
 
-    await onConfirmReschedule(targetRecord.id, newScheduleTime, selectedTimezone);
+    const targetUtcDate = localDateTimeInZoneToUtc(newScheduleTime, selectedTimezone);
+    const scheduledAtIso = targetUtcDate && !isNaN(targetUtcDate.getTime())
+      ? targetUtcDate.toISOString()
+      : newScheduleTime;
+
+    await onConfirmReschedule(targetRecord.id, scheduledAtIso, selectedTimezone);
     onClose();
   };
 

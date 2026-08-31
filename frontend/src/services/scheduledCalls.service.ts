@@ -162,6 +162,8 @@ export function mapApiRecordToScheduledUpload(raw: any): ScheduledUpload {
     timezone: raw.timezone || CONFIG.TIMEZONE.IANA,
     uploadedAt: raw.uploadedAt || raw.createdAt || new Date().toISOString(),
     status: uiStatus,
+    callMode: raw.callMode || 'NORMAL',
+    humanAgentPhoneNumber: raw.humanAgentPhoneNumber,
     validationSummary,
     summary: raw.summary,
     patientResults: raw.patientResults,
@@ -273,7 +275,19 @@ class ScheduledCallsService {
         const errBody = await initResp.json().catch(() => ({}));
         throw new Error(errBody.error || `Failed to initialize upload: HTTP ${initResp.status}`);
       }
-      const { campaignId, batchId, uploadUrl, uploadHeaders } = await initResp.json();
+
+      const initData = await initResp.json();
+      console.log('Upload API response:', initData);
+
+      const uploadUrl = initData.uploadUrl || initData.upload_url || initData.presignedUrl;
+      const uploadHeaders = initData.uploadHeaders || initData.headers;
+      const batchId = initData.batchId || initData.batch_id;
+      const campaignId = initData.campaignId || initData.campaign_id;
+
+      if (!uploadUrl) {
+        throw new Error('Upload initialization failed: missing uploadUrl in response.');
+      }
+
       const uploadResp = await fetch(uploadUrl, {
         method: 'PUT',
         headers: uploadHeaders || { 'Content-Type': 'text/csv' },
@@ -281,7 +295,7 @@ class ScheduledCallsService {
       });
       if (!uploadResp.ok) throw new Error(`S3 direct upload failed with status ${uploadResp.status}`);
       return {
-        id: campaignId || batchId,
+        id: campaignId || batchId || `upload-${Date.now()}`,
         fileName: payload.file.name,
         fileSize: payload.file.size,
         customerCount: payload.customerCount,
@@ -414,6 +428,60 @@ class ScheduledCallsService {
       item.status = 'CANCELLED';
       item.cancellationReason = reason || 'Cancelled by operator';
     }
+  }
+
+  async downloadCampaignCsv(campaignId: string, campaignFileName?: string): Promise<void> {
+    let fallbackFilename = `${campaignId}_export.csv`;
+    if (campaignFileName) {
+      const idx = campaignFileName.lastIndexOf('.');
+      const baseName = idx > 0 ? campaignFileName.substring(0, idx) : campaignFileName;
+      fallbackFilename = `${baseName}_export.csv`;
+    }
+
+    if (this.apiBaseUrl && !isTestEnv) {
+      const resp = await this.apiFetch(`/campaigns/${encodeURIComponent(campaignId)}/export`);
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error(errBody.error || `Failed to download campaign CSV: HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const contentDisposition = resp.headers.get('Content-Disposition');
+      let filename = fallbackFilename;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      return;
+    }
+
+    const csvContent = [
+      'empi,call_id,call_start_datetime,call_end_datetime,disposition,call_summary,requested_callback_date_time,outbound_call_phone_number',
+      `TEST001,call_001,2026-08-29T15:00:00Z,2026-08-29T15:05:30Z,COMPLETED,"Mock campaign export data",n/a,+1877523XXXX`,
+    ].join('\n');
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fallbackFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }
+  }
+
+  async downloadPatientCallCsv(campaignId: string, _patientId?: string, _callId?: string): Promise<void> {
+    return this.downloadCampaignCsv(campaignId);
   }
 }
 

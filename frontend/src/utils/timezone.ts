@@ -136,18 +136,24 @@ export function formatDateTimeInZone(isoStr: string, ianaZone: string): string {
 }
 
 /**
- * Converts a datetime-local wall-clock value in an IANA timezone to a UTC Date.
- * This keeps scheduling semantics tied to the selected timezone rather than the
- * browser machine's timezone. The backend performs the same conversion again
- * and remains authoritative.
+ * Converts a datetime-local wall-clock value ("YYYY-MM-DDTHH:mm") in an IANA timezone to a UTC Date.
+ * Bypasses native JS browser parsing completely.
+ * Validates DST non-existence (e.g. spring forward gap) and returns invalid Date if time does not exist.
  */
 export function localDateTimeInZoneToUtc(localDateTime: string, ianaZone: string): Date {
   const match = localDateTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
   if (!match) return new Date(NaN);
-  const [, y, m, d, hh, mm, ss = '00'] = match;
-  const wallAsUtcMs = Date.UTC(+y, +m - 1, +d, +hh, +mm, +ss);
+  const [, yStr, mStr, dStr, hhStr, mmStr, ssStr = '00'] = match;
+  const y = +yStr;
+  const m = +mStr;
+  const d = +dStr;
+  const hh = +hhStr;
+  const mm = +mmStr;
+  const ss = +ssStr;
 
-  const offsetAt = (instantMs: number): number => {
+  const wallAsUtcMs = Date.UTC(y, m - 1, d, hh, mm, ss);
+
+  const getPartsInZone = (instantMs: number) => {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: ianaZone,
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -156,17 +162,108 @@ export function localDateTimeInZoneToUtc(localDateTime: string, ianaZone: string
     });
     const parts = formatter.formatToParts(new Date(instantMs));
     const get = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value || 0);
-    const representedAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+    return {
+      year: get('year'),
+      month: get('month'),
+      day: get('day'),
+      hour: get('hour'),
+      minute: get('minute'),
+      second: get('second'),
+    };
+  };
+
+  const offsetAt = (instantMs: number): number => {
+    const p = getPartsInZone(instantMs);
+    const representedAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
     return representedAsUtc - instantMs;
   };
 
   try {
-    let offset = offsetAt(wallAsUtcMs);
+    const offset = offsetAt(wallAsUtcMs);
     let utcMs = wallAsUtcMs - offset;
     const refinedOffset = offsetAt(utcMs);
-    if (refinedOffset !== offset) utcMs = wallAsUtcMs - refinedOffset;
+    if (refinedOffset !== offset) {
+      utcMs = wallAsUtcMs - refinedOffset;
+    }
+
+    // DST non-existence validation:
+    // Format computed UTC instant back in ianaZone and check if it matches the target wall-clock numbers.
+    const resParts = getPartsInZone(utcMs);
+    if (
+      resParts.year !== y ||
+      resParts.month !== m ||
+      resParts.day !== d ||
+      resParts.hour !== hh ||
+      resParts.minute !== mm
+    ) {
+      // Wall-clock time does not exist in this timezone (e.g. spring forward gap)
+      return new Date(NaN);
+    }
+
     return new Date(utcMs);
   } catch {
     return new Date(NaN);
   }
+}
+
+/**
+ * Returns wall-clock string "YYYY-MM-DDTHH:mm" for a Date in a specific IANA timezone.
+ */
+export function getWallClockInZone(date: Date, ianaZone: string): string {
+  if (isNaN(date.getTime())) return '';
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: ianaZone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    const parts = formatter.formatToParts(date);
+    const get = (type: Intl.DateTimeFormatPartTypes) => {
+      const val = parts.find((p) => p.type === type)?.value || '0';
+      return val.padStart(2, '0');
+    };
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Calculates a quick time preset relative to current instant in the target IANA timezone.
+ */
+export function getQuickPresetWallClock(minutesAhead: number, ianaZone: string, baseDate = new Date()): string {
+  const targetDate = new Date(baseDate.getTime() + minutesAhead * 60 * 1000);
+  const rawWall = getWallClockInZone(targetDate, ianaZone);
+  if (!rawWall) return '';
+  // Round minutes to nearest 5 mins
+  const match = rawWall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return rawWall;
+  const [, datePart, hhStr, mmStr] = match;
+  let mm = Math.ceil(+mmStr / 5) * 5;
+  let hh = +hhStr;
+  if (mm >= 60) {
+    mm = 0;
+    hh = (hh + 1) % 24;
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${datePart}T${pad(hh)}:${pad(mm)}`;
+}
+
+/**
+ * Calculates 'Tomorrow' preset as the next calendar day in the target IANA timezone.
+ */
+export function getTomorrowPresetWallClock(ianaZone: string, currentWallClock?: string): string {
+  const nowWall = getWallClockInZone(new Date(), ianaZone);
+  if (!nowWall) return '';
+
+  const match = (currentWallClock && currentWallClock.includes('T')) ? currentWallClock.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/) : nowWall.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return '';
+  const [, yStr, mStr, dStr, hhStr, mmStr] = match;
+
+  // Advance 1 calendar day
+  const d = new Date(Date.UTC(+yStr, +mStr - 1, +dStr + 1));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const nextDatePart = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  return `${nextDatePart}T${hhStr}:${mmStr}`;
 }
