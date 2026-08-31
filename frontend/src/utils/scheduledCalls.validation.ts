@@ -1,11 +1,11 @@
-import { CONFIG } from '../config/constants';
+import { CONFIG } from "../config/constants";
 import type {
   ScheduledUpload,
   ValidationError,
   ValidationSummary,
-} from '../types/scheduledCalls.types';
-import type { ParsedSheetData } from './fileParser';
-import { localDateTimeInZoneToUtc } from './timezone';
+} from "../types/scheduledCalls.types";
+import type { ParsedSheetData } from "./fileParser";
+import { localDateTimeInZoneToUtc } from "./timezone";
 
 export interface FileValidationResult {
   valid: boolean;
@@ -17,28 +17,28 @@ export interface FileValidationResult {
  */
 export function validateCsvFile(file: File | null): FileValidationResult {
   if (!file) {
-    return { valid: false, error: 'Please select a customer sheet.' };
+    return { valid: false, error: "Please select a customer sheet." };
   }
 
-  const name = file.name || '';
+  const name = file.name || "";
   const lowerName = name.toLowerCase();
 
   // Must end with .csv
-  if (!lowerName.endsWith('.csv')) {
+  if (!lowerName.endsWith(".csv")) {
     return {
       valid: false,
-      error: 'Only CSV files are supported. Please upload a .csv file.',
+      error: "Only CSV files are supported. Please upload a .csv file.",
     };
   }
 
   // Reject compound extensions like patients.csv.xlsx or patients.csv.txt
-  const parts = lowerName.split('.');
+  const parts = lowerName.split(".");
   if (parts.length > 2) {
     const lastExt = parts[parts.length - 1];
-    if (lastExt !== 'csv') {
+    if (lastExt !== "csv") {
       return {
         valid: false,
-        error: 'Only CSV files are supported. Please upload a .csv file.',
+        error: "Only CSV files are supported. Please upload a .csv file.",
       };
     }
   }
@@ -51,15 +51,19 @@ export function validateCsvFile(file: File | null): FileValidationResult {
  */
 export function validateFileMetadata(
   file: File | null,
-  existingUploads: ScheduledUpload[] = []
-): { isValid: boolean; errors: ValidationError[]; warnings: ValidationError[] } {
+  existingUploads: ScheduledUpload[] = [],
+): {
+  isValid: boolean;
+  errors: ValidationError[];
+  warnings: ValidationError[];
+} {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
 
   if (!file) {
     errors.push({
-      message: 'Please select a customer sheet.',
-      type: 'FATAL',
+      message: "Please select a customer sheet.",
+      type: "FATAL",
     });
     return { isValid: false, errors, warnings };
   }
@@ -68,36 +72,37 @@ export function validateFileMetadata(
   const csvCheck = validateCsvFile(file);
   if (!csvCheck.valid) {
     errors.push({
-      message: csvCheck.error || 'Only CSV files are supported. Please upload a .csv file.',
-      type: 'FATAL',
+      message:
+        csvCheck.error ||
+        "Only CSV files are supported. Please upload a .csv file.",
+      type: "FATAL",
     });
   }
-
 
   // 2. File size check
   if (file.size > CONFIG.MAX_FILE_SIZE_BYTES) {
     errors.push({
       message: `File size exceeds the maximum allowed limit of ${CONFIG.MAX_FILE_SIZE_MB} MB.`,
-      type: 'FATAL',
+      type: "FATAL",
     });
   }
 
   // 3. Zero-byte check
   if (file.size === 0) {
     errors.push({
-      message: 'Selected file is empty.',
-      type: 'FATAL',
+      message: "Selected file is empty.",
+      type: "FATAL",
     });
   }
 
   // 4. Duplicate filename warning (Non-fatal)
   const isDuplicateName = existingUploads.some(
-    (u) => u.fileName.toLowerCase() === file.name.toLowerCase()
+    (u) => u.fileName.toLowerCase() === file.name.toLowerCase(),
   );
   if (isDuplicateName) {
     warnings.push({
       message: `A file with name "${file.name}" has already been uploaded. Please confirm that this is a new customer batch.`,
-      type: 'WARNING',
+      type: "WARNING",
     });
   }
 
@@ -112,7 +117,7 @@ export function validateFileMetadata(
  * Normalizes phone numbers to standard format (removes spaces, dashes, parentheses).
  */
 export function sanitizePhoneNumber(phone: string): string {
-  return phone.replace(/[\s\-\(\)]/g, '');
+  return phone.replace(/[\s\-\(\)]/g, "");
 }
 
 /**
@@ -126,13 +131,13 @@ export function isValidPhoneNumber(phone: string): boolean {
 }
 
 export const REQUIRED_CARA_HEADERS = [
-  'empi',
-  'first_name',
-  'last_name',
-  'gender',
-  'phone_number',
-  'practice_name',
-  'practice_callback_number',
+  "empi",
+  "first_name",
+  "last_name",
+  "gender",
+  "phone_number",
+  "practice_name",
+  "practice_callback_number",
 ] as const;
 
 /**
@@ -140,11 +145,19 @@ export const REQUIRED_CARA_HEADERS = [
  */
 function findMatchingHeader(
   headers: string[],
-  target: string
+  target: string,
 ): string | undefined {
-  const cleanTarget = target.replace(/^\ufeff/, '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  const cleanTarget = target
+    .replace(/^\ufeff/, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, "");
   return headers.find((h) => {
-    const cleanH = h.replace(/^\ufeff/, '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const cleanH = h
+      .replace(/^\ufeff/, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, "");
     return cleanH === cleanTarget;
   });
 }
@@ -153,7 +166,7 @@ function findMatchingHeader(
  * Validates spreadsheet structure and individual customer record rows.
  */
 export function validateSheetContent(
-  parsedData: ParsedSheetData
+  parsedData: ParsedSheetData,
 ): ValidationSummary {
   const { headers, rows, rawRowCount } = parsedData;
   const errors: ValidationError[] = [];
@@ -172,13 +185,16 @@ export function validateSheetContent(
     }
   });
 
-  const directAgentHeader = findMatchingHeader(headers, 'direct_agent') || findMatchingHeader(headers, 'direct agent');
+  // DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
+  // const directAgentHeader =
+  //   findMatchingHeader(headers, "direct_agent") ||
+  //   findMatchingHeader(headers, "direct agent");
 
   const requiredColumnsPresent = missingHeaders.length === 0;
   if (!requiredColumnsPresent) {
     errors.push({
-      message: `Invalid CSV format. Missing required column: ${missingHeaders.join(', ')}`,
-      type: 'FATAL',
+      message: `Invalid CSV format. Missing required column: ${missingHeaders.join(", ")}`,
+      type: "FATAL",
     });
     errorCount++;
   }
@@ -187,8 +203,8 @@ export function validateSheetContent(
   const recordsFound = rawRowCount > 0;
   if (rawRowCount === 0) {
     errors.push({
-      message: 'File contains no customer rows.',
-      type: 'FATAL',
+      message: "File contains no customer rows.",
+      type: "FATAL",
     });
     errorCount++;
   }
@@ -204,27 +220,27 @@ export function validateSheetContent(
       const getRowVal = (req: string) => {
         const matchedKey = foundHeaders[req];
         if (matchedKey && row[matchedKey] !== undefined) {
-          return String(row[matchedKey] ?? '').trim();
+          return String(row[matchedKey] ?? "").trim();
         }
         if (row[req] !== undefined) {
-          return String(row[req] ?? '').trim();
+          return String(row[req] ?? "").trim();
         }
-        return '';
+        return "";
       };
 
-      const empiVal = getRowVal('empi');
-      const firstNameVal = getRowVal('first_name');
-      const lastNameVal = getRowVal('last_name');
-      const phoneVal = getRowVal('phone_number');
-      const practiceNameVal = getRowVal('practice_name');
-      const practiceCbVal = getRowVal('practice_callback_number');
+      const empiVal = getRowVal("empi");
+      const firstNameVal = getRowVal("first_name");
+      const lastNameVal = getRowVal("last_name");
+      const phoneVal = getRowVal("phone_number");
+      const practiceNameVal = getRowVal("practice_name");
+      const practiceCbVal = getRowVal("practice_callback_number");
 
       if (!empiVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['empi'],
+          column: foundHeaders["empi"],
           message: `Row ${rowNum}: EMPI is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
       }
@@ -232,9 +248,9 @@ export function validateSheetContent(
       if (!firstNameVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['first_name'],
+          column: foundHeaders["first_name"],
           message: `Row ${rowNum}: First name is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
       }
@@ -242,9 +258,9 @@ export function validateSheetContent(
       if (!lastNameVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['last_name'],
+          column: foundHeaders["last_name"],
           message: `Row ${rowNum}: Last name is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
       }
@@ -252,9 +268,9 @@ export function validateSheetContent(
       if (!practiceNameVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['practice_name'],
+          column: foundHeaders["practice_name"],
           message: `Row ${rowNum}: Practice name is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
       }
@@ -262,9 +278,9 @@ export function validateSheetContent(
       if (!practiceCbVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['practice_callback_number'],
+          column: foundHeaders["practice_callback_number"],
           message: `Row ${rowNum}: Practice callback number is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
       }
@@ -272,9 +288,9 @@ export function validateSheetContent(
       if (!phoneVal) {
         errors.push({
           row: rowNum,
-          column: foundHeaders['phone_number'],
+          column: foundHeaders["phone_number"],
           message: `Row ${rowNum}: Phone number is missing.`,
-          type: 'FATAL',
+          type: "FATAL",
         });
         errorCount++;
         phoneNumbersValid = false;
@@ -282,9 +298,9 @@ export function validateSheetContent(
         if (!isValidPhoneNumber(phoneVal)) {
           errors.push({
             row: rowNum,
-            column: foundHeaders['phone_number'],
+            column: foundHeaders["phone_number"],
             message: `Row ${rowNum}: Invalid phone number (${phoneVal}).`,
-            type: 'FATAL',
+            type: "FATAL",
           });
           errorCount++;
           phoneNumbersValid = false;
@@ -292,36 +308,43 @@ export function validateSheetContent(
 
         const cleanPhone = sanitizePhoneNumber(phoneVal);
         if (seenPhones.has(cleanPhone)) {
-          errors.push({
-            row: rowNum,
-            column: foundHeaders['phone_number'],
-            message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
-            type: 'FATAL',
-          });
-          errorCount++;
-          noDuplicatePhones = false;
+          // errors.push({
+          //   row: rowNum,
+          //   column: foundHeaders['phone_number'],
+          //   message: `Row ${rowNum}: Duplicate phone number detected (${phoneVal}).`,
+          //   type: 'FATAL',
+          // });
+          // errorCount++;
+          // noDuplicatePhones = false;
         } else {
           seenPhones.add(cleanPhone);
         }
       }
 
-      // Per-row 'direct agent' column validation
-      if (directAgentHeader && row[directAgentHeader] !== undefined) {
-        const rawDirectVal = String(row[directAgentHeader] ?? '').trim().toLowerCase();
-        if (rawDirectVal !== '' && rawDirectVal !== 'yes' && rawDirectVal !== 'no') {
-          errors.push({
-            row: rowNum,
-            column: directAgentHeader,
-            message: `Row ${rowNum}: Invalid direct agent value ('${row[directAgentHeader]}'). Expected 'yes' or 'no'.`,
-            type: 'FATAL',
-          });
-          errorCount++;
-        }
-      }
+      // DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
+      // Per-row 'direct agent' column is ignored in favor of campaign-level toggle.
+      // if (directAgentHeader && row[directAgentHeader] !== undefined) {
+      //   const rawDirectVal = String(row[directAgentHeader] ?? "")
+      //     .trim()
+      //     .toLowerCase();
+      //   if (
+      //     rawDirectVal !== "" &&
+      //     rawDirectVal !== "yes" &&
+      //     rawDirectVal !== "no"
+      //   ) {
+      //     errors.push({
+      //       row: rowNum,
+      //       column: directAgentHeader,
+      //       message: `Row ${rowNum}: Invalid direct agent value ('${row[directAgentHeader]}'). Expected 'yes' or 'no'.`,
+      //       type: "FATAL",
+      //     });
+      //     errorCount++;
+      //   }
+      // }
     });
   }
 
-  const fatalErrors = errors.filter((e) => e.type === 'FATAL');
+  const fatalErrors = errors.filter((e) => e.type === "FATAL");
 
   return {
     isValid: fatalErrors.length === 0,
@@ -333,8 +356,10 @@ export function validateSheetContent(
       fileTypeValid: true,
       requiredColumnsPresent,
       recordsFound,
-      phoneNumbersValid: phoneNumbersValid && recordsFound && requiredColumnsPresent,
-      noDuplicatePhones: noDuplicatePhones && recordsFound && requiredColumnsPresent,
+      phoneNumbersValid:
+        phoneNumbersValid && recordsFound && requiredColumnsPresent,
+      noDuplicatePhones:
+        noDuplicatePhones && recordsFound && requiredColumnsPresent,
     },
   };
 }
@@ -342,30 +367,34 @@ export function validateSheetContent(
 /**
  * Validates selected scheduled date and time.
  */
-export function validateScheduleTime(scheduleTimeIso: string, timezone?: string): {
+export function validateScheduleTime(
+  scheduleTimeIso: string,
+  timezone?: string,
+): {
   isValid: boolean;
   error?: string;
 } {
   if (!scheduleTimeIso) {
     return {
       isValid: false,
-      error: 'Please select a schedule calling time.',
+      error: "Please select a schedule calling time.",
     };
   }
 
-  const ianaZone = timezone || 'Asia/Kolkata';
+  const ianaZone = timezone || "Asia/Kolkata";
   const selectedDate = localDateTimeInZoneToUtc(scheduleTimeIso, ianaZone);
 
   if (isNaN(selectedDate.getTime())) {
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(scheduleTimeIso)) {
       return {
         isValid: false,
-        error: 'Selected time does not exist in the chosen timezone due to Daylight Saving Time adjustment.',
+        error:
+          "Selected time does not exist in the chosen timezone due to Daylight Saving Time adjustment.",
       };
     }
     return {
       isValid: false,
-      error: 'Invalid date/time format.',
+      error: "Invalid date/time format.",
     };
   }
 
@@ -373,7 +402,7 @@ export function validateScheduleTime(scheduleTimeIso: string, timezone?: string)
   if (selectedDate.getTime() <= now.getTime()) {
     return {
       isValid: false,
-      error: 'Scheduled time must be in the future.',
+      error: "Scheduled time must be in the future.",
     };
   }
 
@@ -391,9 +420,39 @@ export function validateScheduleTime(scheduleTimeIso: string, timezone?: string)
 }
 
 /**
- * Legacy validator maintained for signature compatibility.
+ * Validates Human Agent Phone Number (always required for campaign creation).
  */
-export function validateHumanAgentPhone(): { isValid: boolean } {
-  return { isValid: true };
+export function validateHumanAgentPhone(phone: string): { isValid: boolean; error?: string } {
+  const raw = (phone || "").trim();
+  if (!raw) {
+    return { isValid: false, error: "Human agent phone number is required." };
+  }
+  const e164Pattern = /^\+[1-9]\d{7,14}$/;
+  if (e164Pattern.test(raw)) {
+    return { isValid: true };
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 || (digits.length === 11 && digits.startsWith("1"))) {
+    return { isValid: true };
+  }
+  return { isValid: false, error: "Please enter a valid phone number (e.g. +14437264019 or (443) 726-4019)." };
 }
 
+/**
+ * Normalizes Human Agent Phone Number to E.164 string format.
+ */
+export function normalizeHumanAgentPhone(phone: string): string {
+  const raw = (phone || "").trim();
+  const e164Pattern = /^\+[1-9]\d{7,14}$/;
+  if (e164Pattern.test(raw)) {
+    return raw;
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+${digits}`;
+  }
+  return raw;
+}

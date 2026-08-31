@@ -2344,16 +2344,19 @@ def cara_return_to_control_tools() -> list[dict[str, Any]]:
             "description": "Return control when the confirmed customer is ready for a human specialist.",
             "instruction": {
                 "instruction": (
-                    "Use only when the confirmed customer agrees to, asks for, or is clearly ready for "
-                    "a human specialist and there is no safety concern. If Cara just offered a specialist "
-                    "or asked whether now is a good time and the caller answers affirmatively, invoke this "
-                    "tool immediately in that same turn. Saying that you will connect the caller without "
-                    "invoking this tool does not perform the transfer. Safety always overrides transfer. "
-                    "Do not invoke after a clear refusal or callback request."
+                    "Use ONLY when the confirmed customer explicitly agrees to, asks for, or provides a clear "
+                    "affirmative answer to speak with a human specialist (e.g., 'yes', 'sure', 'okay', 'go ahead', "
+                    "'you can connect now', 'please connect me', 'yes please'). "
+                    "NEVER invoke this tool when the customer asks a question or raises an objection, even after "
+                    "answering it — you MUST ask for consent and wait for their explicit affirmative reply. "
+                    "If the customer stays silent or says something neutral, re-prompt for consent and DO NOT transfer. "
+                    "Saying that you will connect the caller without invoking this tool does not perform the transfer. "
+                    "Safety always overrides transfer. Do not invoke after a clear refusal or callback request."
                 ),
                 "examples": [
-                    "Cara: Is now a good time? Caller: Yes, it is a good time to connect. -> invoke EscalateToHuman",
-                    "Cara: Would you like me to connect you with a specialist? Caller: Yes, please. -> invoke EscalateToHuman",
+                    "Cara: Is now a good time? Caller: Yes, please connect me. -> invoke EscalateToHuman",
+                    "Cara: Would you like me to connect you with the care team? Caller: Sure, go ahead. -> invoke EscalateToHuman",
+                    "Cara: Would you like me to connect you? Caller: Yes, you can connect now. -> invoke EscalateToHuman",
                     "Caller: Please connect me to a human specialist. -> invoke EscalateToHuman",
                 ],
             },

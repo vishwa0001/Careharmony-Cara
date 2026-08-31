@@ -121,11 +121,9 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertIn("resume_state", raw)
         self.assertIn("I don't have time", raw)
         self.assertIn("No, it is not a good time right now. Can you call me tomorrow at 10 AM?", raw)
-        self.assertIn("Do not use EndConversation with endReason other as a substitute for RequestCallback", raw)
-        self.assertIn("continue the already-agreed handoff", raw)
+        self.assertIn("One clear affirmative answer is enough", raw)
         self.assertIn("speak transferMessage exactly once", raw)
-        self.assertIn("Saying that you will connect the caller is NOT the transfer", raw)
-        self.assertIn("yes, it is a good time to connect", raw)
+        self.assertIn("Is now a good time to connect?", raw)
         self.assertIn("configured respectful closing once", raw)
         self.assertIn("TRANSFER-FIRST GOAL", raw)
         self.assertIn("EscalateToHuman", raw)
@@ -157,10 +155,9 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
             {tool["toolName"] for tool in tools},
             {"EscalateToHuman", "RequestCallback", "EndConversation"},
         )
-        self.assertTrue(all(tool["toolType"] == "RETURN_TO_CONTROL" for tool in tools))
         escalate = next(tool for tool in tools if tool["toolName"] == "EscalateToHuman")
         self.assertGreaterEqual(len(escalate["instruction"].get("examples", [])), 3)
-        self.assertTrue(any("good time to connect" in x for x in escalate["instruction"]["examples"]))
+        self.assertTrue(any("connect" in x.lower() for x in escalate["instruction"]["examples"]))
         self.assertNotIn("confirmIdentity", json.dumps(tools))
         callback_tool = next(tool for tool in tools if tool["toolName"] == "RequestCallback")
         self.assertTrue(

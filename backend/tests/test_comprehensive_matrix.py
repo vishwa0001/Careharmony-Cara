@@ -27,43 +27,37 @@ from utils.agent_availability import check_agent_availability
 class ComprehensiveMatrixTests(unittest.TestCase):
 
     # -------------------------------------------------------------
-    # 1. INTAKE PARSING & HEADER PERMUTATIONS
+    # 1. INTAKE PARSING & CAMPAIGN-LEVEL CONFIG
     # -------------------------------------------------------------
-    def test_intake_header_and_value_variations(self):
+    def test_intake_campaign_level_toggle(self):
         cases = [
-            ("direct_agent", "yes", "yes", "DIRECT_HUMAN_HANDOFF"),
-            ("direct_agent", "YES", "yes", "DIRECT_HUMAN_HANDOFF"),
-            ("direct_agent", "Yes ", "yes", "DIRECT_HUMAN_HANDOFF"),
-            ("direct_agent", "no", "no", "NORMAL"),
-            ("direct_agent", "NO", "no", "NORMAL"),
-            ("direct_agent", "", "no", "NORMAL"),
-            ("directAgent", "yes", "yes", "DIRECT_HUMAN_HANDOFF"),
-            ("direct agent", "yes", "yes", "DIRECT_HUMAN_HANDOFF"),
+            (True, "+18145551234", "yes", "DIRECT_HUMAN_HANDOFF", "+18145551234"),
+            (False, "+18145551234", "no", "NORMAL", "+18145551234"),
         ]
-        for header, val, exp_direct, exp_mode in cases:
-            with self.subTest(header=header, value=val):
+        for toggle, agent_phone, exp_direct, exp_mode, exp_phone in cases:
+            with self.subTest(toggle=toggle):
                 csv = (
-                    f"empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,{header}\n"
-                    f"P1,Jane,Doe,Female,+18145551001,Practice X,+18005550100,{val}\n"
+                    "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number\n"
+                    "P1,Jane,Doe,Female,+18145551001,Practice X,+18005550100\n"
                 )
                 mock_s3 = MagicMock()
                 mock_s3.get_object.return_value = {"Body": io.BytesIO(csv.encode("utf-8"))}
-                res = campaign_intake._load_patients(mock_s3, "b", "c")
+                cfg = {"directAgentEnabled": toggle, "humanAgentPhoneNumber": agent_phone}
+                res = campaign_intake._load_patients(mock_s3, "b", "c", config=cfg)
                 self.assertEqual(res[0]["direct_agent"], exp_direct)
                 self.assertEqual(res[0]["callMode"], exp_mode)
+                self.assertEqual(res[0]["humanAgentPhoneNumber"], exp_phone)
 
-    def test_intake_invalid_values_fail_safely(self):
-        invalid_vals = ["maybe", "true", "1", "AGENT", "unknown"]
-        for val in invalid_vals:
-            with self.subTest(value=val):
-                csv = (
-                    f"empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,direct_agent\n"
-                    f"P1,Jane,Doe,Female,+18145551001,Practice X,+18005550100,{val}\n"
-                )
-                mock_s3 = MagicMock()
-                mock_s3.get_object.return_value = {"Body": io.BytesIO(csv.encode("utf-8"))}
-                with self.assertRaises(ValueError):
-                    campaign_intake._load_patients(mock_s3, "b", "c")
+    def test_intake_ignores_legacy_direct_agent_csv_column(self):
+        csv = (
+            "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,direct_agent\n"
+            "P1,Jane,Doe,Female,+18145551001,Practice X,+18005550100,maybe\n"
+        )
+        mock_s3 = MagicMock()
+        mock_s3.get_object.return_value = {"Body": io.BytesIO(csv.encode("utf-8"))}
+        res = campaign_intake._load_patients(mock_s3, "b", "c", config={"directAgentEnabled": False})
+        self.assertEqual(res[0]["direct_agent"], "no")
+        self.assertEqual(res[0]["callMode"], "NORMAL")
 
     # -------------------------------------------------------------
     # 2. AGENT AVAILABILITY API PERMUTATIONS
@@ -88,7 +82,7 @@ class ComprehensiveMatrixTests(unittest.TestCase):
         self.assertFalse(check_agent_availability({"patientId": "p4"}))
 
     # -------------------------------------------------------------
-    # 3. CALL PLACEMENT ROUTING MATRIX
+    # 3. CALL PLACEMENT ROUTING MATRIX (CLIENT TESTING)
     # -------------------------------------------------------------
     def test_call_placement_matrix(self):
         mock_table = MagicMock()
@@ -96,17 +90,13 @@ class ComprehensiveMatrixTests(unittest.TestCase):
         mock_connect.start_outbound_voice_contact.return_value = {"ContactId": "c-123"}
 
         test_matrix = [
-            # direct_agent, initial callMode, agent_avail, exp_call_mode, exp_has_agent_phone, exp_coaching_greeting
-            ("yes", "DIRECT_HUMAN_HANDOFF", True,  "DIRECT_HUMAN_HANDOFF", True,  False),
-            ("yes", "DIRECT_HUMAN_HANDOFF", False, "NORMAL",               False, True),
-            ("yes", "NORMAL",               True,  "DIRECT_HUMAN_HANDOFF", True,  False),
-            ("yes", "NORMAL",               False, "NORMAL",               False, True),
-            ("no",  "NORMAL",               True,  "NORMAL",               False, True),
-            ("no",  "NORMAL",               False, "NORMAL",               False, True),
+            # direct_agent, initial callMode, exp_call_mode, exp_greeting
+            ("yes", "DIRECT_HUMAN_HANDOFF", "DIRECT_HUMAN_HANDOFF", False),
+            ("no",  "NORMAL",               "NORMAL",               True),
         ]
 
-        for direct_val, init_mode, avail, exp_mode, exp_agent_phone, exp_greeting in test_matrix:
-            with self.subTest(direct_agent=direct_val, init_mode=init_mode, avail=avail):
+        for direct_val, init_mode, exp_mode, exp_greeting in test_matrix:
+            with self.subTest(direct_agent=direct_val, init_mode=init_mode):
                 mock_connect.reset_mock()
                 patient = {
                     "patientId": "P-TEST",
@@ -117,22 +107,18 @@ class ComprehensiveMatrixTests(unittest.TestCase):
                     "practiceName": "Health Center",
                     "direct_agent": direct_val,
                     "callMode": init_mode,
+                    "humanAgentPhoneNumber": "+15822671755",
                 }
-                with patch("campaign_dialer.check_agent_availability", return_value=avail), \
-                     patch("campaign_dialer._check_agent_availability", return_value={"available": avail, "agentPhone": "+15822671755" if avail else None}):
-                    contact_id = campaign_dialer._place_call(mock_table, mock_connect, patient, "camp-1")
-                    attrs = mock_connect.start_outbound_voice_contact.call_args[1]["Attributes"]
-                    
-                    self.assertEqual(attrs["callMode"], exp_mode)
-                    self.assertEqual(attrs["direct_agent"], direct_val)
-                    if exp_agent_phone:
-                        self.assertIn("humanAgentPhoneNumber", attrs)
-                        self.assertEqual(attrs["humanAgentPhoneNumber"], "+15822671755")
-                    else:
-                        self.assertNotIn("humanAgentPhoneNumber", attrs)
-                    if exp_greeting:
-                        self.assertIn("coachingGreeting", attrs)
-                        self.assertIn("Is now a good time?", attrs["coachingGreeting"])
+                contact_id = campaign_dialer._place_call(mock_table, mock_connect, patient, "camp-1")
+                attrs = mock_connect.start_outbound_voice_contact.call_args[1]["Attributes"]
+
+                self.assertEqual(attrs["callMode"], exp_mode)
+                self.assertEqual(attrs["direct_agent"], direct_val)
+                self.assertIn("humanAgentPhoneNumber", attrs)
+                self.assertEqual(attrs["humanAgentPhoneNumber"], "+15822671755")
+                if exp_greeting:
+                    self.assertIn("coachingGreeting", attrs)
+                    self.assertIn("Is now a good time?", attrs["coachingGreeting"])
 
     # -------------------------------------------------------------
     # 4. SESSION CONTEXT ATTRIBUTE FORWARDING
