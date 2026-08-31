@@ -6,7 +6,7 @@ import sys
 import time
 import boto3
 
-def run_real_campaign():
+def run_alex_test():
     profile = os.environ.get("AWS_PROFILE", "careharmony-main")
     session = boto3.Session(profile_name=profile, region_name="us-east-1")
     sts = session.client("sts")
@@ -14,23 +14,20 @@ def run_real_campaign():
     s3 = session.client("s3")
     dynamo = session.resource("dynamodb")
     batches_table = dynamo.Table("TalkingBotCallBatches-dev")
-    patients_table = dynamo.Table("TalkingBotPatientRecords-dev")
 
-    campaign_id = f"test-real-{int(time.time())}"
+    campaign_id = f"test-alex-normal-{int(time.time())}"
     bucket_name = f"cara-health-bot-campaigns-{account_id}-us-east-1"
     
-    # Schedule for 1 minute from now in UTC
     now_dt = dt.datetime.now(dt.timezone.utc)
-    scheduled_dt = now_dt + dt.timedelta(minutes=1)
-    scheduled_iso = scheduled_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    scheduled_iso = (now_dt + dt.timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     config_data = {
         "campaignId": campaign_id,
         "batchId": campaign_id,
         "fileName": "patients.csv",
-        "customerCount": 3,
-        "patientCount": 3,
-        "totalRows": 3,
+        "customerCount": 1,
+        "patientCount": 1,
+        "totalRows": 1,
         "scheduledAt": scheduled_iso,
         "timezone": "UTC",
         "callTime": scheduled_iso,
@@ -39,15 +36,12 @@ def run_real_campaign():
 
     phone = "+18148316822"
 
-    # 3-row test CSV
     csv_content = (
         "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,direct_agent\n"
-        f"TEST-ROW-1,John,Doe,Male,{phone},Mercy Health,+18005550100,yes\n"
-        f"TEST-ROW-2-UNAVAIL,Jane,Smith,Female,{phone},Mercy Health,+18005550100,yes\n"
-        f"TEST-ROW-3-NORMAL,Alex,Taylor,Non-Binary,{phone},Mercy Health,+18005550100,no\n"
+        f"TEST-ALEX-NORMAL,Alex,Taylor,Non-Binary,{phone},Mercy Health,+18005550100,no\n"
     )
 
-    print(f"Creating campaign batch record: {campaign_id}")
+    print(f"Creating Alex normal flow test campaign: {campaign_id}")
     batches_table.put_item(
         Item={
             **config_data,
@@ -59,7 +53,6 @@ def run_real_campaign():
         }
     )
 
-    print(f"1. Uploading config.json to s3://{bucket_name}/campaigns/{campaign_id}/config.json")
     s3.put_object(
         Bucket=bucket_name,
         Key=f"campaigns/{campaign_id}/config.json",
@@ -67,16 +60,15 @@ def run_real_campaign():
         ContentType="application/json",
     )
 
-    print(f"2. Uploading patients.csv to s3://{bucket_name}/campaigns/{campaign_id}/patients.csv")
     s3.put_object(
         Bucket=bucket_name,
         Key=f"campaigns/{campaign_id}/patients.csv",
         Body=csv_content.encode("utf-8"),
         ContentType="text/csv",
     )
-    print("Upload complete. S3 event will trigger campaign_intake and dialer Lambda.")
+    print("Uploaded. Campaign intake and dialer will start.")
     return campaign_id
 
 if __name__ == "__main__":
-    campaign_id = run_real_campaign()
+    campaign_id = run_alex_test()
     print(f"Campaign ID: {campaign_id}")

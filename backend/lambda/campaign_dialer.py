@@ -253,16 +253,11 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
     first_name = str(patient.get("firstName") or "")
     practice_name = str(patient.get("practiceName") or "")
 
-    # Set fast-path greeting for Normal Cara Flow (no spoken practiceName)
+    # Set opening greeting for Normal Cara Flow (permission asking)
+    display_name = first_name or customer_name or "there"
     coaching_greeting = (
-        (
-            f"Hi {first_name}, I have some important information to share with you. Please hold while I connect you now."
-            if first_name
-            else "I have some important information to share with you. Please hold while I connect you now."
-        )
-        if call_mode == "NORMAL"
-        else f"Thanks, {customer_name}. I'm Cara, an automated assistant. "
-             f"I can connect you with a human specialist who can help. Is now a good time?"
+        f"Thanks, {display_name}. I'm Cara, an automated assistant. "
+        f"I can connect you with a human specialist who can help. Is now a good time?"
     )
 
     if call_mode == "DIRECT_HUMAN_HANDOFF":

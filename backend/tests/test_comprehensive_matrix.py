@@ -132,7 +132,7 @@ class ComprehensiveMatrixTests(unittest.TestCase):
                         self.assertNotIn("humanAgentPhoneNumber", attrs)
                     if exp_greeting:
                         self.assertIn("coachingGreeting", attrs)
-                        self.assertIn("Please hold while I connect you now", attrs["coachingGreeting"])
+                        self.assertIn("Is now a good time?", attrs["coachingGreeting"])
 
     # -------------------------------------------------------------
     # 4. SESSION CONTEXT ATTRIBUTE FORWARDING
