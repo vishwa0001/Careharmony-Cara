@@ -77,8 +77,8 @@ def run_dry_run():
         print(f"    direct_agent: {attrs.get('direct_agent')}")
         print(f"    coachingGreeting: {attrs.get('coachingGreeting')}")
         assert attrs.get("callMode") == "NORMAL", "Expected fallback to NORMAL"
-        assert "Please hold while I connect you now" in attrs.get("coachingGreeting")
-        print("    --> PASS: Fail-safe activated! Fell back to Normal Cara Flow with fast-path greeting.")
+        assert "Is now a good time?" in attrs.get("coachingGreeting")
+        print("    --> PASS: Fail-safe activated! Fell back to Normal Cara Flow with permission greeting.")
 
     # Case 3: direct_agent=no, Normal Cara Flow
     print("\n  --- CASE 3: direct_agent='no' (Normal Cara Flow) ---")
@@ -91,8 +91,8 @@ def run_dry_run():
     print(f"    direct_agent: {attrs.get('direct_agent')}")
     print(f"    coachingGreeting: {attrs.get('coachingGreeting')}")
     assert attrs.get("callMode") == "NORMAL"
-    assert "Please hold while I connect you now" in attrs.get("coachingGreeting")
-    print("    --> PASS: Normal Cara Flow initiated with fast-path greeting.")
+    assert "Is now a good time?" in attrs.get("coachingGreeting")
+    print("    --> PASS: Normal Cara Flow initiated with permission greeting.")
 
     print("\n[STEP 3] Testing Disconnect & DynamoDB Status Finalizations...\n")
 

@@ -3,12 +3,13 @@ import os
 import sys
 import boto3
 
-session = boto3.Session(profile_name="careharmony", region_name="us-east-1")
+profile = os.environ.get("AWS_PROFILE", "careharmony-main")
+session = boto3.Session(profile_name=profile, region_name="us-east-1")
 dynamo = session.resource("dynamodb")
 batches_table = dynamo.Table("TalkingBotCallBatches-dev")
 patients_table = dynamo.Table("TalkingBotPatientRecords-dev")
 
-campaign_id = "test-decline-jane-1788188778"
+campaign_id = "test-real-1788191485"
 batch = batches_table.get_item(Key={"batchId": campaign_id}).get("Item")
 print("=== BATCH STATUS ===")
 print(json.dumps(batch, indent=2, default=str))
