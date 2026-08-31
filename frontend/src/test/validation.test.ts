@@ -4,7 +4,9 @@ import {
   SAMPLE_CUSTOMER_RECORDS,
 } from "../utils/sampleCsvGenerator";
 import {
+  normalizeHumanAgentPhone,
   validateCsvFile,
+  validateHumanAgentPhone,
   validateScheduleTime,
   validateSheetContent,
 } from "../utils/scheduledCalls.validation";
@@ -16,13 +18,13 @@ import {
 
 describe("Scheduled Calls Validation & Feature Suite", () => {
   describe("Sample CSV Generator Unified Template", () => {
-    it("generates unified CSV template containing 'direct agent' column", () => {
+    it("generates standard CSV template without 'direct agent' column", () => {
       const csv = generateSampleCsvContent();
       const lines = csv.split("\n");
       expect(lines[0]).toBe(
-        "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,direct agent",
+        "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number",
       );
-      expect(csv).toContain("direct agent");
+      expect(csv).not.toContain("direct agent");
       expect(csv).not.toContain("human_agent_phone_number");
     });
 
@@ -36,9 +38,8 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
           "phone_number",
           "practice_name",
           "practice_callback_number",
-          "direct agent",
         ],
-        rows: SAMPLE_CUSTOMER_RECORDS.map(r => ({ ...r, 'direct agent': r.direct_agent })),
+        rows: [...SAMPLE_CUSTOMER_RECORDS],
         rawRowCount: SAMPLE_CUSTOMER_RECORDS.length,
       };
 
@@ -58,9 +59,8 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
           "phone_number",
           "practice_name",
           "practice_callback_number",
-          "direct agent",
         ],
-        rows: SAMPLE_CUSTOMER_RECORDS.map(r => ({ ...r, 'direct agent': r.direct_agent })),
+        rows: [...SAMPLE_CUSTOMER_RECORDS],
         rawRowCount: SAMPLE_CUSTOMER_RECORDS.length,
       };
 
@@ -132,9 +132,9 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
     });
   });
 
-  describe("Direct Agent Per-Row CSV Column Validation", () => {
-    it("accepts valid 'yes', 'no', case variations, and empty values for direct agent", () => {
-      const parsedDataValid = {
+  describe("Direct Agent Setting & Phone Validation", () => {
+    it("accepts CSVs with or without 'direct agent' column (column is ignored for campaign-level toggle)", () => {
+      const parsedDataWithCol = {
         headers: [
           "empi",
           "first_name",
@@ -147,59 +147,21 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
         ],
         rows: [
           { empi: "T1", first_name: "A", last_name: "B", gender: "Male", phone_number: "+18145551111", practice_name: "P", practice_callback_number: "+18145550000", "direct agent": "yes" },
-          { empi: "T2", first_name: "C", last_name: "D", gender: "Female", phone_number: "+18145552222", practice_name: "P", practice_callback_number: "+18145550000", "direct agent": "NO" },
-          { empi: "T3", first_name: "E", last_name: "F", gender: "Male", phone_number: "+18145553333", practice_name: "P", practice_callback_number: "+18145550000", "direct agent": "" },
+          { empi: "T2", first_name: "C", last_name: "D", gender: "Female", phone_number: "+18145552222", practice_name: "P", practice_callback_number: "+18145550000", "direct agent": "maybe" },
         ],
-        rawRowCount: 3,
+        rawRowCount: 2,
       };
 
-      const result = validateSheetContent(parsedDataValid);
+      const result = validateSheetContent(parsedDataWithCol);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it("accepts legacy CSV missing 'direct agent' column completely", () => {
-      const parsedDataLegacy = {
-        headers: [
-          "empi",
-          "first_name",
-          "last_name",
-          "gender",
-          "phone_number",
-          "practice_name",
-          "practice_callback_number",
-        ],
-        rows: [
-          { empi: "T1", first_name: "A", last_name: "B", gender: "Male", phone_number: "+18145551111", practice_name: "P", practice_callback_number: "+18145550000" },
-        ],
-        rawRowCount: 1,
-      };
-
-      const result = validateSheetContent(parsedDataLegacy);
-      expect(result.isValid).toBe(true);
-    });
-
-    it("rejects invalid 'direct agent' cell values (e.g. maybe, true, false, 123)", () => {
-      const parsedDataInvalid = {
-        headers: [
-          "empi",
-          "first_name",
-          "last_name",
-          "gender",
-          "phone_number",
-          "practice_name",
-          "practice_callback_number",
-          "direct agent",
-        ],
-        rows: [
-          { empi: "T1", first_name: "A", last_name: "B", gender: "Male", phone_number: "+18145551111", practice_name: "P", practice_callback_number: "+18145550000", "direct agent": "maybe" },
-        ],
-        rawRowCount: 1,
-      };
-
-      const result = validateSheetContent(parsedDataInvalid);
-      expect(result.isValid).toBe(false);
-      expect(result.errors[0].message).toContain("Row 2: Invalid direct agent value ('maybe'). Expected 'yes' or 'no'.");
+    it("validates human agent phone number format correctly", () => {
+      expect(validateHumanAgentPhone("").isValid).toBe(false);
+      expect(validateHumanAgentPhone("+15822671755").isValid).toBe(true);
+      expect(validateHumanAgentPhone("+1 (582) 267-1755").isValid).toBe(true);
+      expect(validateHumanAgentPhone("123").isValid).toBe(false);
     });
   });
 
@@ -254,6 +216,38 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
     it("generates timezone-aware Tomorrow preset advancing 1 calendar day", () => {
       const preset = getTomorrowPresetWallClock("Asia/Kolkata", "2026-08-30T22:38");
       expect(preset).toBe("2026-08-31T22:38");
+    });
+  });
+
+  describe("Human Agent Phone Validation & Normalization Suite", () => {
+    it("rejects empty or whitespace phone strings", () => {
+      expect(validateHumanAgentPhone("").isValid).toBe(false);
+      expect(validateHumanAgentPhone("   ").isValid).toBe(false);
+      expect(validateHumanAgentPhone("").error).toBe("Human agent phone number is required.");
+    });
+
+    it("accepts valid E.164 phone numbers", () => {
+      expect(validateHumanAgentPhone("+18148316822").isValid).toBe(true);
+      expect(validateHumanAgentPhone("+15822671755").isValid).toBe(true);
+      expect(validateHumanAgentPhone("+441234567890").isValid).toBe(true);
+    });
+
+    it("accepts valid 10-digit and 11-digit numbers", () => {
+      expect(validateHumanAgentPhone("8148316822").isValid).toBe(true);
+      expect(validateHumanAgentPhone("(814) 831-6822").isValid).toBe(true);
+      expect(validateHumanAgentPhone("18148316822").isValid).toBe(true);
+    });
+
+    it("rejects invalid phone formats or lengths", () => {
+      expect(validateHumanAgentPhone("123").isValid).toBe(false);
+      expect(validateHumanAgentPhone("not-a-number").isValid).toBe(false);
+    });
+
+    it("normalizes phone formats correctly to E.164", () => {
+      expect(normalizeHumanAgentPhone("+18148316822")).toBe("+18148316822");
+      expect(normalizeHumanAgentPhone("8148316822")).toBe("+18148316822");
+      expect(normalizeHumanAgentPhone("(814) 831-6822")).toBe("+18148316822");
+      expect(normalizeHumanAgentPhone("18148316822")).toBe("+18148316822");
     });
   });
 });

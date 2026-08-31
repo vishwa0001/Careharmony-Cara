@@ -5,7 +5,7 @@ import type {
   ValidationSummary,
 } from '../types/scheduledCalls.types';
 import { parseCustomerSheet } from '../utils/fileParser';
-import { validateCsvFile, validateSheetContent } from '../utils/scheduledCalls.validation';
+import { normalizeHumanAgentPhone, validateCsvFile, validateSheetContent } from '../utils/scheduledCalls.validation';
 
 const isTestEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') || import.meta.env?.MODE === 'test';
 
@@ -162,7 +162,8 @@ export function mapApiRecordToScheduledUpload(raw: any): ScheduledUpload {
     timezone: raw.timezone || CONFIG.TIMEZONE.IANA,
     uploadedAt: raw.uploadedAt || raw.createdAt || new Date().toISOString(),
     status: uiStatus,
-    callMode: raw.callMode || 'NORMAL',
+    callMode: raw.callMode || (raw.directAgentEnabled ? 'DIRECT_HUMAN_HANDOFF' : 'NORMAL'),
+    directAgentEnabled: raw.directAgentEnabled ?? (raw.callMode === 'DIRECT_HUMAN_HANDOFF'),
     humanAgentPhoneNumber: raw.humanAgentPhoneNumber,
     validationSummary,
     summary: raw.summary,
@@ -269,6 +270,8 @@ class ScheduledCallsService {
           timezone: payload.timezone || CONFIG.TIMEZONE.IANA,
           customerCount: payload.customerCount,
           originalRecordId: payload.originalRecordId,
+          directAgentEnabled: payload.directAgentEnabled,
+          humanAgentPhoneNumber: payload.humanAgentPhoneNumber ? normalizeHumanAgentPhone(payload.humanAgentPhoneNumber) : '',
         }),
       });
       if (!initResp.ok) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, CheckCircle2, FileText, Globe, HardDrive, Hash, Link2, RefreshCw, RotateCcw, X, XCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, FileText, Globe, HardDrive, Hash, Headset, Link2, Phone, RefreshCw, RotateCcw, X, XCircle } from 'lucide-react';
 import type { ScheduledUpload } from '../../../types/scheduledCalls.types';
 import { getAvailableActions } from '../../../utils/statusActions';
 import { formatDateTimeInZone, getTimezoneOffsetDisplay } from '../../../utils/timezone';
@@ -134,6 +134,28 @@ export const ScheduledUploadDetailsDrawer: React.FC<ScheduledUploadDetailsDrawer
                 {upload.timezone} ({tzOffsetDisplay})
               </span>
             </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <Headset className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                Routing Mode:
+              </span>
+              <span className={`font-semibold ${upload.directAgentEnabled || upload.callMode === 'DIRECT_HUMAN_HANDOFF' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                {upload.directAgentEnabled || upload.callMode === 'DIRECT_HUMAN_HANDOFF' ? 'Direct to Human Agent' : 'Normal Cara Flow'}
+              </span>
+            </div>
+
+            {upload.humanAgentPhoneNumber && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50">
+                <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2 font-medium">
+                  <Phone className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  Specialist Phone:
+                </span>
+                <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  {upload.humanAgentPhoneNumber}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Failure / Cancellation Reasons */}

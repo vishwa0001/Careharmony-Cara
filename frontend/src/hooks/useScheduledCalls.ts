@@ -6,7 +6,7 @@ import type {
   ValidationError,
   ValidationSummary,
 } from '../types/scheduledCalls.types';
-import { validateFileMetadata, validateScheduleTime } from '../utils/scheduledCalls.validation';
+import { validateFileMetadata, validateHumanAgentPhone, validateScheduleTime } from '../utils/scheduledCalls.validation';
 import { getDefaultTimezone, localDateTimeInZoneToUtc } from '../utils/timezone';
 import { CONFIG } from '../config/constants';
 
@@ -18,12 +18,15 @@ export function useScheduledCalls() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [scheduleTime, setScheduleTime] = useState<string>('');
   const [selectedTimezone, setSelectedTimezone] = useState<string>(getDefaultTimezone());
+  const [directAgentEnabled, setDirectAgentEnabled] = useState<boolean>(false);
+  const [humanAgentPhoneNumber, setHumanAgentPhoneNumber] = useState<string>('');
 
   // Validation State
   const [metaErrors, setMetaErrors] = useState<ValidationError[]>([]);
   const [metaWarnings, setMetaWarnings] = useState<ValidationError[]>([]);
   const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [agentPhoneError, setAgentPhoneError] = useState<string | null>(null);
 
   // Status & Modal States
   const [isParsing, setIsParsing] = useState<boolean>(false);
@@ -125,6 +128,22 @@ export function useScheduledCalls() {
     setTimeError(check.isValid ? null : check.error || 'Invalid schedule time.');
   };
 
+  const handleHumanAgentPhoneChange = (phone: string) => {
+    setHumanAgentPhoneNumber(phone);
+    setSuccessMessage(null);
+    if (!phone.trim()) {
+      setAgentPhoneError('Human agent phone number is required.');
+      return;
+    }
+    const check = validateHumanAgentPhone(phone);
+    setAgentPhoneError(check.isValid ? null : check.error || 'Invalid phone number format.');
+  };
+
+  const handleToggleDirectAgent = (enabled: boolean) => {
+    setDirectAgentEnabled(enabled);
+    setSuccessMessage(null);
+  };
+
   const isFormValid = useMemo(() => {
     if (!selectedFile) return false;
     if (metaErrors.length > 0) return false;
@@ -134,8 +153,21 @@ export function useScheduledCalls() {
     if (timeError) return false;
 
     const timeCheck = validateScheduleTime(scheduleTime, selectedTimezone);
-    return timeCheck.isValid;
-  }, [selectedFile, metaErrors, validationSummary, scheduleTime, selectedTimezone, timeError]);
+    if (!timeCheck.isValid) return false;
+
+    const phoneCheck = validateHumanAgentPhone(humanAgentPhoneNumber);
+    if (!phoneCheck.isValid) return false;
+
+    return true;
+  }, [
+    selectedFile,
+    metaErrors,
+    validationSummary,
+    scheduleTime,
+    selectedTimezone,
+    timeError,
+    humanAgentPhoneNumber,
+  ]);
 
   const handleInitiateSchedule = () => {
     if (!isFormValid) return;
@@ -161,6 +193,8 @@ export function useScheduledCalls() {
         timezone: selectedTimezone,
         customerCount: validationSummary.totalRows,
         validationSummary,
+        directAgentEnabled,
+        humanAgentPhoneNumber: humanAgentPhoneNumber.trim(),
       });
 
       setSuccessMessage('Calls scheduled successfully.');
@@ -236,6 +270,9 @@ export function useScheduledCalls() {
     setMetaWarnings([]);
     setValidationSummary(null);
     setTimeError(null);
+    setDirectAgentEnabled(false);
+    setHumanAgentPhoneNumber('');
+    setAgentPhoneError(null);
     setShowConfirmModal(false);
   };
 
@@ -304,6 +341,13 @@ export function useScheduledCalls() {
     statusFilter,
     setSearchQuery,
     setStatusFilter,
+    directAgentEnabled,
+    setDirectAgentEnabled,
+    humanAgentPhoneNumber,
+    setHumanAgentPhoneNumber,
+    agentPhoneError,
+    handleHumanAgentPhoneChange,
+    handleToggleDirectAgent,
     handleFileSelect,
     handleScheduleTimeChange,
     handleInitiateSchedule,
