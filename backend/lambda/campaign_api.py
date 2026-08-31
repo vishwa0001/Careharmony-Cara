@@ -7,7 +7,9 @@ frontends can place API Gateway/Cognito or another authenticated edge in front.
 from __future__ import annotations
 
 import base64
+import csv
 import datetime as dt
+import io
 import json
 import os
 import re
@@ -69,6 +71,7 @@ def _csv_response(status: int, csv_body: str, filename: str, event: dict | None 
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Headers": "content-type,authorization,accept",
+            "Access-Control-Expose-Headers": "Content-Disposition",
             "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
             "Vary": "Origin",
         },
@@ -326,24 +329,6 @@ def _detail(campaign_id: str) -> dict | None:
     return _decorate_campaign(batches_tbl, patients_tbl, item, include_summary=True) if item else None
 
 
-import csv
-import io
-
-def _csv_response(status: int, csv_content: str, filename: str) -> dict[str, Any]:
-    origin = os.environ.get("API_ALLOWED_ORIGIN", "http://localhost:5173")
-    return {
-        "statusCode": status,
-        "headers": {
-            "Content-Type": "text/csv; charset=utf-8",
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Headers": "content-type,authorization",
-            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-            "Vary": "Origin",
-        },
-        "body": csv_content,
-    }
-
 
 def _patient_list(campaign_id: str) -> dict:
     batches_tbl = _batches_table()
@@ -440,7 +425,7 @@ def _export_patient_csv(campaign_id: str, patient_id: str, event: dict) -> dict:
     ])
 
     filename = f"{empi}_{call_id}.csv"
-    return _csv_response(200, output.getvalue(), filename)
+    return _csv_response(200, output.getvalue(), filename, event)
 
 
 def _export_campaign_csv(campaign_id: str, event: dict) -> dict:
@@ -535,7 +520,7 @@ def _export_campaign_csv(campaign_id: str, event: dict) -> dict:
     stem = raw_file_name.rsplit(".", 1)[0] if "." in raw_file_name else raw_file_name
     export_filename = f"{stem}_export.csv"
 
-    return _csv_response(200, output.getvalue(), export_filename)
+    return _csv_response(200, output.getvalue(), export_filename, event)
 
 
 def _cancel(campaign_id: str, payload: dict) -> dict:
