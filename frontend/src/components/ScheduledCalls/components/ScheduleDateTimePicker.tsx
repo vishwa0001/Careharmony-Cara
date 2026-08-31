@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, Globe, Search } from 'lucide-react';
 import { CONFIG } from '../../../config/constants';
-import { getTimezoneOptions } from '../../../utils/timezone';
+import { getQuickPresetWallClock, getTimezoneOptions, getTomorrowPresetWallClock } from '../../../utils/timezone';
 
 interface ScheduleDateTimePickerProps {
   scheduleTime: string;
@@ -21,37 +21,27 @@ export const ScheduleDateTimePicker: React.FC<ScheduleDateTimePickerProps> = ({
   const [tzSearch, setTzSearch] = useState<string>('');
   const timezoneOptions = getTimezoneOptions(tzSearch);
 
-  const formatForInput = (isoStr: string): string => {
-    if (!isoStr) return '';
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '';
-    const pad = (n: number) => (n < 10 ? `0${n}` : n);
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-      d.getHours()
-    )}:${pad(d.getMinutes())}`;
+  const formatForInput = (wallClockStr: string): string => {
+    if (!wallClockStr) return '';
+    return wallClockStr.slice(0, 16);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value;
-    if (!rawVal) {
-      onScheduleTimeChange('');
-      return;
-    }
-    const d = new Date(rawVal);
-    onScheduleTimeChange(d.toISOString());
+    onScheduleTimeChange(e.target.value);
   };
 
   const setQuickTime = (minutesAhead: number) => {
-    const d = new Date(Date.now() + minutesAhead * 60 * 1000);
-    const roundedMinutes = Math.ceil(d.getMinutes() / 5) * 5;
-    d.setMinutes(roundedMinutes);
-    d.setSeconds(0);
-    d.setMilliseconds(0);
-    onScheduleTimeChange(d.toISOString());
+    const presetWallClock = getQuickPresetWallClock(minutesAhead, selectedTimezone);
+    onScheduleTimeChange(presetWallClock);
+  };
+
+  const setTomorrow = () => {
+    const presetWallClock = getTomorrowPresetWallClock(selectedTimezone, scheduleTime);
+    onScheduleTimeChange(presetWallClock);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Date Time Picker Header */}
       <div className="flex items-center justify-between">
         <label className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
@@ -133,7 +123,7 @@ export const ScheduleDateTimePicker: React.FC<ScheduleDateTimePickerProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setQuickTime(24 * 60)}
+          onClick={setTomorrow}
           className="px-2.5 py-1 text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700 transition-colors"
         >
           Tomorrow

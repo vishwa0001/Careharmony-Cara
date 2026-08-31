@@ -59,11 +59,56 @@ def _verify_identity_name(expected: str, first: str, last: str) -> str:
     )
 
 
+def _fetch_agent_availability(patient_id: str, empi: str) -> dict[str, str]:
+    import os
+    import json
+    import urllib.request
+    import urllib.parse
+    import datetime as dt
+
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    url = os.environ.get("AGENT_AVAILABILITY_URL", "https://uqyt6tgmp3dktodmkrkxqmn3f40wndqq.lambda-url.us-east-1.on.aws/")
+    fixed_phone = os.environ.get("FIXED_AGENT_PHONE", "+15822671755")
+
+    try:
+        target_url = url
+        params = {}
+        if patient_id:
+            params["patientId"] = patient_id
+        if empi:
+            params["empi"] = empi
+        if params:
+            query = urllib.parse.urlencode(params)
+            target_url = f"{url}?{query}" if "?" not in url else f"{url}&{query}"
+        with urllib.request.urlopen(target_url, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            available = bool(data.get("available"))
+            agent_phone = str(data.get("agentPhone") or fixed_phone)
+            checked_at = str(data.get("checkedAt") or now_iso)
+            return {
+                "available": "true" if available else "false",
+                "agentPhone": agent_phone,
+                "agentCheckedAt": checked_at,
+            }
+    except Exception as e:
+        print(f"[WARN] _fetch_agent_availability failed: {e}")
+        return {
+            "available": "false",
+            "agentPhone": fixed_phone,
+            "agentCheckedAt": now_iso,
+        }
+
+
 def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
     # Do not log the incoming event because it contains customer-specific data.
     details = event.get("Details") or {}
     params = details.get("Parameters") or {}
     operation = str(params.get("operation") or "initialize").strip()
+
+    if operation == "checkAgentAvailability":
+        patient_id = _optional(params, "patientId")
+        empi = _optional(params, "empi")
+        return _fetch_agent_availability(patient_id, empi)
 
     if operation == "verifyIdentityName":
         expected = _required(params, "expectedCustomerName")
@@ -84,6 +129,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
     session_arn = _required(params, "sessionArn")
     customer_name = _required(params, "customerName")
     expected_phone = _required(params, "expectedPhone")
+    direct_agent = _optional(params, "direct_agent") or _optional(params, "directAgent") or "no"
+    practice_name = _optional(params, "practiceName")
+    first_name = _optional(params, "firstName")
 
     match = SESSION_ARN.fullmatch(session_arn)
     if not match:
@@ -91,16 +139,23 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
     if match.group("assistant") != assistant_id:
         raise ValueError("Session ARN does not belong to the configured assistant")
 
+    session_data = [
+        {"key": "customerName", "value": {"stringValue": customer_name}},
+        {"key": "expectedPhone", "value": {"stringValue": expected_phone}},
+        {"key": "identityPolicyVersion", "value": {"stringValue": "v7-full-name-validated"}},
+        {"key": "identityConfirmed", "value": {"stringValue": "true"}},
+        {"key": "conversationState", "value": {"stringValue": "PATIENT_CONFIRMED"}},
+        {"key": "direct_agent", "value": {"stringValue": direct_agent or "no"}},
+    ]
+    if practice_name:
+        session_data.append({"key": "practiceName", "value": {"stringValue": practice_name}})
+    if first_name:
+        session_data.append({"key": "firstName", "value": {"stringValue": first_name}})
+
     boto3.client("qconnect", region_name=match.group("region")).update_session_data(
         assistantId=assistant_id,
         sessionId=session_arn,
         namespace="Custom",
-        data=[
-            {"key": "customerName", "value": {"stringValue": customer_name}},
-            {"key": "expectedPhone", "value": {"stringValue": expected_phone}},
-            {"key": "identityPolicyVersion", "value": {"stringValue": "v7-full-name-validated"}},
-            {"key": "identityConfirmed", "value": {"stringValue": "true"}},
-            {"key": "conversationState", "value": {"stringValue": "PATIENT_CONFIRMED"}},
-        ],
+        data=session_data,
     )
     return {"contextStatus": "READY", "identityConfirmed": "true"}

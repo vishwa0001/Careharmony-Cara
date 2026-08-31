@@ -47,3 +47,26 @@ A live identity test also showed the correctly transcribed question “may I kno
 Live call regression: after an ambiguous identity turn, a caller said "No, wrong number" and the identity bot returned FallbackIntent. The privacy-minimal availability bot then classified a longer explicit wrong-number statement as SafetyMedical because that bot had safety intents but no WrongNumber intent.
 
 Fix: strengthen WrongNumber utterances in the identity bot, add the same WrongNumber intent to the availability bot, and route WrongNumber from either availability attempt to the existing identityResult=Denied wrong-number exit. Genuine mixed safety statements still route to SafetyMedical/SafetyBehavioral.
+
+## v3.2.3 — TransferParticipantToThirdParty required parameters
+
+Amazon Connect `UpdateContactFlowContent` failed during deployment with `InvalidContactFlowException` because action `Actions[61]` (`TransferParticipantToThirdParty`) was missing required parameters:
+- `ThirdPartyConnectionTimeLimitSeconds`: string duration (e.g. `"60"`)
+- `ContinueFlowExecution`: string boolean (`"False"`)
+
+Fix: Added `ThirdPartyConnectionTimeLimitSeconds: "60"` and `ContinueFlowExecution: "False"` to action `e1000000-0000-4000-8000-000000000004` parameters in `cara-health-bot-flow.json` and updated unit tests.
+
+## v3.2.4 — Compare block condition evaluation operands cannot be empty strings
+
+Amazon Connect `UpdateContactFlowContent` failed during deployment with `InvalidContactFlowException: Invalid branch. Path: 59.Evaluate` because action index 59 (`e1000000-0000-4000-8000-000000000002`, `Compare`) contained an explicit condition operand set to an empty string `[""]`.
+
+Fix: Removed the invalid `Operands: [""]` condition block from `e1000000-0000-4000-8000-000000000002` in `cara-health-bot-flow.json`. When `$.Attributes.humanAgentPhoneNumber` is valid/present, `Compare` follows `NextAction` to the courtesy prompt (`e1000000-0000-4000-8000-000000000003`); when missing or unassigned, it triggers `NoMatchingCondition` / `NoMatchingError` transitions directly to the failure prompt (`e1000000-0000-4000-8000-000000000005`). Updated unit tests accordingly.
+
+## v3.2.5 — Outbound CallerID setting for third-party handoff transfer
+
+Amazon Connect flow schema (v2019-10-30) does not accept `CallerIdNumber` as a parameter inside `TransferParticipantToThirdParty` directly (`Invalid Action property name`). Setting outbound caller ID requires an `UpdateContactAttributes` action block (`e1000000-0000-4000-8000-000000000006`) prior to `TransferParticipantToThirdParty`, setting `"CallerIdNumber": "+18775205924"` (`SourcePhoneNumber` from `deployment-state.json` outputs).
+
+Fix: Added `UpdateContactAttributes` block `e1000000-0000-4000-8000-000000000006` in `cara-health-bot-flow.json` before `TransferParticipantToThirdParty` and published the updated flow to AWS Connect (`HTTPStatusCode: 200`, Status: `PUBLISHED`).
+
+
+

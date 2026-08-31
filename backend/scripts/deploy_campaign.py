@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-from __future__ import annotations
-
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -12,13 +10,20 @@ from cara_health_bot.campaign_deployer import CampaignDeployer, CampaignDeployme
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Deploy or validate Cara Health Bot campaign infrastructure")
+    parser.add_argument("--dry-run", action="store_true", help="Validate pipeline without placing real calls or modifying AWS")
+    args = parser.parse_args()
+
     try:
-        output = CampaignDeployer(ROOT).deploy()
+        output = CampaignDeployer(ROOT, dry_run=args.dry_run).deploy()
     except Exception as error:
         print(f"Campaign deployment error: {error}", file=sys.stderr)
         return 1
     print(json.dumps(output, indent=2))
-    print("\nCara Health Bot campaign workaround is deployed and verified.")
+    if args.dry_run:
+        print("\nCara Health Bot campaign workaround dry-run validation complete.")
+    else:
+        print("\nCara Health Bot campaign workaround is deployed and verified.")
     return 0
 
 

@@ -1,10 +1,14 @@
-import React from 'react';
-import { Calendar, Eye, FileText, Filter, Loader2, RefreshCw, RotateCcw, Search, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Download, Eye, FileText, Filter, Loader2, RefreshCw, RotateCcw, Search, XCircle } from 'lucide-react';
 import type { ScheduledUpload } from '../../../types/scheduledCalls.types';
+import { scheduledCallsService } from '../../../services/scheduledCalls.service';
 import { getAvailableActions } from '../../../utils/statusActions';
 import { formatDateTimeInZone } from '../../../utils/timezone';
 import { EmptyState } from './EmptyState';
 import { StatusBadge } from './StatusBadge';
+import { Tooltip } from './Tooltip';
+
+const EXPORTABLE_STATUSES = ["COMPLETED", "PARTIAL", "FAILED", "CALL_SETUP_FAILED", "CALLBACK_SCHEDULED", "PROCESSING"];
 
 interface ScheduledUploadsTableProps {
   uploads: ScheduledUpload[];
@@ -35,6 +39,24 @@ export const ScheduledUploadsTable: React.FC<ScheduledUploadsTableProps> = ({
   onCancelSchedule,
   onEmptyAction,
 }) => {
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+
+  const handleDownloadCsv = async (id: string, fileName: string) => {
+    try {
+      setDownloadingIds((prev) => new Set(prev).add(id));
+      await scheduledCallsService.downloadCampaignCsv(id, fileName);
+    } catch (err: any) {
+      console.error('Download CSV failed:', err);
+      alert(err.message || 'Failed to download CSV');
+    } finally {
+      setDownloadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Table Title and Controls */}
@@ -112,6 +134,16 @@ export const ScheduledUploadsTable: React.FC<ScheduledUploadsTableProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-800 dark:text-slate-200">
                 {uploads.map((row) => {
                   const actions = getAvailableActions(row.status);
+                  const isRowDownloading = downloadingIds.has(row.id);
+                  const statusStr = String(row.status || '');
+                  const isExportable = EXPORTABLE_STATUSES.includes(statusStr);
+                  const exportTooltip = isExportable
+                    ? "Download call results as CSV"
+                    : statusStr === "UPLOAD_PENDING" || statusStr === "UPLOADED"
+                      ? "Campaign is still being processed, export will be available once calls are scheduled"
+                      : statusStr === "PENDING" || statusStr === "SCHEDULED"
+                        ? "No calls have been made yet, export will be available after calls are completed"
+                        : "Export is not available for this campaign status";
 
                   return (
                     <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
@@ -144,6 +176,28 @@ export const ScheduledUploadsTable: React.FC<ScheduledUploadsTableProps> = ({
                       </td>
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Tooltip content={exportTooltip}>
+                            <span>
+                              <button
+                                type="button"
+                                disabled={!isExportable || isRowDownloading}
+                                onClick={() => (!isExportable || isRowDownloading) ? undefined : handleDownloadCsv(row.id, row.fileName)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-500/30 rounded-lg transition-colors shrink-0 ${
+                                  !isExportable
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "hover:text-indigo-900 dark:hover:text-white hover:bg-indigo-100 dark:hover:bg-indigo-800/60"
+                                }`}
+                              >
+                                {isRowDownloading ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="w-3.5 h-3.5" />
+                                )}
+                                <span>CSV</span>
+                              </button>
+                            </span>
+                          </Tooltip>
+
                           {actions.canView && (
                             <button
                               type="button"
@@ -200,6 +254,16 @@ export const ScheduledUploadsTable: React.FC<ScheduledUploadsTableProps> = ({
           <div className="md:hidden divide-y divide-slate-200 dark:divide-slate-800 p-2">
             {uploads.map((row) => {
               const actions = getAvailableActions(row.status);
+              const isRowDownloading = downloadingIds.has(row.id);
+              const statusStr = String(row.status || '');
+              const isExportable = EXPORTABLE_STATUSES.includes(statusStr);
+              const exportTooltip = isExportable
+                ? "Download call results as CSV"
+                : statusStr === "UPLOAD_PENDING" || statusStr === "UPLOADED"
+                  ? "Campaign is still being processed, export will be available once calls are scheduled"
+                  : statusStr === "PENDING" || statusStr === "SCHEDULED"
+                    ? "No calls have been made yet, export will be available after calls are completed"
+                    : "Export is not available for this campaign status";
 
               return (
                 <div key={row.id} className="p-4 space-y-3">
@@ -225,6 +289,28 @@ export const ScheduledUploadsTable: React.FC<ScheduledUploadsTableProps> = ({
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1">
+                    <Tooltip content={exportTooltip}>
+                      <span>
+                        <button
+                          type="button"
+                          disabled={!isExportable || isRowDownloading}
+                          onClick={() => (!isExportable || isRowDownloading) ? undefined : handleDownloadCsv(row.id, row.fileName)}
+                          className={`px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-500/30 rounded-lg inline-flex items-center gap-1 ${
+                            !isExportable
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:bg-indigo-100 dark:hover:bg-indigo-800/60"
+                          }`}
+                        >
+                          {isRowDownloading ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+                          <span>Download CSV</span>
+                        </button>
+                      </span>
+                    </Tooltip>
+
                     {actions.canView && (
                       <button
                         type="button"
