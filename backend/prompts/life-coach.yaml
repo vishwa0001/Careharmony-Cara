@@ -329,5 +329,3 @@ system: |
 
 messages:
   - "{{$.conversationHistory}}"
-  - role: assistant
-    content: <message>

@@ -54,6 +54,7 @@ from .builders import (
     availability_now_intent_request,
     availability_unavailable_intent_request,
     availability_unknown_intent_request,
+    availability_representative_willing_intent_request,
     availability_fallback_intent_request,
     availability_callback_date_slot_request,
     availability_callback_time_slot_request,
@@ -1128,14 +1129,11 @@ class CaraHealthBotDeployer:
                 current_locale = self.lex.describe_bot_locale(
                     botId=bot_id, botVersion="DRAFT", localeId=self.cfg.locale
                 )
-                if current_locale.get("botLocaleStatus") == "Failed":
-                    self._reset_failed_locale_if_needed(bot_id, self.cfg.locale)
-                    self.lex.create_bot_locale(**locale_request)
-                else:
-                    if current_locale.get("botLocaleStatus") not in {
-                        "NotBuilt", "Built", "ReadyExpressTesting", "Failed"
-                    }:
-                        self._wait_draft_locale_stable(bot_id)
+                if current_locale.get("botLocaleStatus") not in {
+                    "NotBuilt", "Built", "ReadyExpressTesting", "Failed"
+                }:
+                    self._wait_draft_locale_stable(bot_id)
+                if current_locale.get("botLocaleStatus") != "Failed":
                     self.lex.update_bot_locale(**locale_request)
             else:
                 self.lex.create_bot_locale(**locale_request)
@@ -1387,6 +1385,7 @@ class CaraHealthBotDeployer:
             for name, builder in {
                 "TargetAvailableNow": availability_now_intent_request,
                 "AvailabilityUnknown": availability_unknown_intent_request,
+                "RepresentativeWillingToProceed": availability_representative_willing_intent_request,
                 "WrongNumber": wrong_number_intent_request,
                 "SafetyMedical": safety_medical_intent_request,
                 "SafetyBehavioral": safety_behavioral_intent_request,
@@ -1448,7 +1447,7 @@ class CaraHealthBotDeployer:
                 )
                 if actual_slot.get("slotTypeId") != slot_type:
                     return False
-                if actual_slot.get("valueElicitationSetting", {}).get("slotConstraint") != "Required":
+                if actual_slot.get("valueElicitationSetting", {}).get("slotConstraint") != "Optional":
                     return False
             return True
         except ClientError:
@@ -1514,6 +1513,9 @@ class CaraHealthBotDeployer:
                 bot_id, availability_unavailable_intent_request(self.cfg, bot_id)
             )
             self._upsert_intent(bot_id, availability_unknown_intent_request(self.cfg, bot_id))
+            self._upsert_intent(
+                bot_id, availability_representative_willing_intent_request(self.cfg, bot_id)
+            )
             self._upsert_intent(bot_id, wrong_number_intent_request(self.cfg, bot_id))
             self._upsert_intent(bot_id, safety_medical_intent_request(self.cfg, bot_id))
             self._upsert_intent(bot_id, safety_behavioral_intent_request(self.cfg, bot_id))
@@ -1794,8 +1796,8 @@ class CaraHealthBotDeployer:
                 )).get("botLocaleStatus", ""),
                 r,
             ),
-            {"NotBuilt", "Built", "ReadyExpressTesting"},
-            {"Failed"},
+            {"NotBuilt", "Built", "ReadyExpressTesting", "Failed"},
+            {"Deleting"},
             timeout_seconds=900,
         )
 
@@ -2252,6 +2254,8 @@ class CaraHealthBotDeployer:
         q_intent_id = self._upsert_intent(
             bot_id, lex_qinconnect_intent_request(self.cfg, bot_id, assistant_arn)
         )
+        self._upsert_intent(bot_id, safety_medical_intent_request(self.cfg, bot_id))
+        self._upsert_intent(bot_id, safety_behavioral_intent_request(self.cfg, bot_id))
         fallback_id = self._upsert_intent(bot_id, lex_fallback_intent_request(self.cfg, bot_id))
         # Critical invariant: never publish a Lex version until DRAFT explicitly
         # points at the exact assistant created/attached earlier in this same run.
@@ -3314,8 +3318,8 @@ class CaraHealthBotDeployer:
                 raise DeploymentError("WrongNumber is not routed from third-party availability to Denied/wrong-number exit")
             if availability_routes.get("TargetAvailableNow") != "a0000000-0000-4000-8000-000000000006":
                 raise DeploymentError("Available third party path does not lead to pass-the-phone re-verification")
-            if availability_routes.get("TargetUnavailable") != "a0000000-0000-4000-8000-000000000007":
-                raise DeploymentError("Unavailable third party path does not persist callback availability")
+            if availability_routes.get("TargetUnavailable") != "a0000000-0000-4000-8000-000000000011":
+                raise DeploymentError("Unavailable third party path does not route to patientUnavailablePrompt")
             availability_2 = flow_actions["a0000000-0000-4000-8000-000000000005"]
             availability_2_routes = {
                 c["Condition"]["Operands"][0]: c["NextAction"]
@@ -3352,6 +3356,14 @@ class CaraHealthBotDeployer:
             if transfer_queue.get("Type") != "TransferContactToQueue":
                 raise DeploymentError("Human transfer action is not TransferContactToQueue")
             coaching_q = flow_actions.get("55555555-5555-4555-8555-555555555555", {})
+            coaching_routes = {
+                c.get("Condition", {}).get("Operands", [None])[0]: c.get("NextAction")
+                for c in coaching_q.get("Transitions", {}).get("Conditions", [])
+            }
+            if coaching_routes.get("SafetyMedical") != "d0000000-0000-4000-8000-000000000001":
+                raise DeploymentError("Coaching block does not route SafetyMedical to medical safety exit")
+            if coaching_routes.get("SafetyBehavioral") != "d0000000-0000-4000-8000-000000000002":
+                raise DeploymentError("Coaching block does not route SafetyBehavioral to behavioral safety exit")
             coaching_errors = {
                 e.get("ErrorType"): e.get("NextAction")
                 for e in coaching_q.get("Transitions", {}).get("Errors", [])

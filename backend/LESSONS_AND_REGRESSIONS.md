@@ -66,7 +66,15 @@ Fix: Removed the invalid `Operands: [""]` condition block from `e1000000-0000-40
 
 Amazon Connect flow schema (v2019-10-30) does not accept `CallerIdNumber` as a parameter inside `TransferParticipantToThirdParty` directly (`Invalid Action property name`). Setting outbound caller ID requires an `UpdateContactAttributes` action block (`e1000000-0000-4000-8000-000000000006`) prior to `TransferParticipantToThirdParty`, setting `"CallerIdNumber": "+18775205924"` (`SourcePhoneNumber` from `deployment-state.json` outputs).
 
-Fix: Added `UpdateContactAttributes` block `e1000000-0000-4000-8000-000000000006` in `cara-health-bot-flow.json` before `TransferParticipantToThirdParty` and published the updated flow to AWS Connect (`HTTPStatusCode: 200`, Status: `PUBLISHED`).
+## v3.2.6 — Flow-level safety net for medical emergencies in coaching phase
+
+Root cause (contactId 96db70fb-b9ef-4477-ba71-4280001bb0ea): In the coaching phase (`ConnectParticipantWithLexBot` action `55555555-5555-4555-8555-555555555555`), acute medical emergency statements were routed solely through Amazon Q in Connect / Nova Lite. When the model generated conversational spoken text rather than executing `EndConversation(endReason="safety_medical")`, Lex remained in `dialogAction: Delegate`, leaving the caller stranded in ConnectParticipantWithLexBot across silence timeouts and triggering foundation model crisis hotline messages.
+
+Fix:
+1. Contact Flow: Added explicit `SafetyMedical` and `SafetyBehavioral` condition transitions on coaching block `55555555-5555-4555-8555-555555555555` routing directly to `d0000000-0000-4000-8000-000000000001` (medical safety exit) and `d0000000-0000-4000-8000-000000000002` (behavioral safety exit), which play static prompts and immediately execute a hard `DisconnectParticipant`.
+2. Lex Coaching Bot: Upsert `SafetyMedical` and `SafetyBehavioral` intents on the main coaching bot (`4S3WG7D9ZQ`) alongside `AmazonQinConnect`, providing deterministic NLU classification for 180+ acute emergency utterances independent of foundation model tool-calling.
+3. AI Prompt: Removed the pre-filled `<message>` tag in the assistant role of `prompts/life-coach.yaml` to prevent forcing text-generation mode over tool invocation on safety turns.
+
 
 
 

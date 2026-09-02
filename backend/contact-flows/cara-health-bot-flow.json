@@ -459,6 +459,26 @@
       "Type": "ConnectParticipantWithLexBot",
       "Transitions": {
         "NextAction": "b0000000-0000-4000-8000-000000000001",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          }
+        ],
         "Errors": [
           {
             "NextAction": "66666666-6666-4666-8666-666666666666",
@@ -625,7 +645,7 @@
             }
           },
           {
-            "NextAction": "a0000000-0000-4000-8000-000000000007",
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -639,6 +659,15 @@
               "Operator": "Equals",
               "Operands": [
                 "AvailabilityUnknown"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RepresentativeWillingToProceed"
               ]
             }
           },
@@ -724,7 +753,7 @@
             }
           },
           {
-            "NextAction": "a0000000-0000-4000-8000-000000000007",
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -738,6 +767,15 @@
               "Operator": "Equals",
               "Operands": [
                 "AvailabilityUnknown"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RepresentativeWillingToProceed"
               ]
             }
           }
@@ -1083,6 +1121,7 @@
           "targetAvailableNow": "false",
           "callbackDate": "$.Lex.Slots.callbackDate",
           "callbackTime": "$.Lex.Slots.callbackTime",
+          "callbackWhen": "$.Lex.InputTranscript",
           "identityResult": "Denied"
         },
         "TargetContact": "Current"
@@ -1219,7 +1258,7 @@
             }
           },
           {
-            "NextAction": "a0000000-0000-4000-8000-000000000009",
+            "NextAction": "a0000000-0000-4000-8000-000000000007",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -1725,17 +1764,34 @@
     {
       "Parameters": {
         "Attributes": {
-          "identityResult": "Denied"
+          "identityResult": "Denied",
+          "recipientType": "REPRESENTATIVE"
         },
         "TargetContact": "Current"
       },
       "Identifier": "e0000000-0000-4000-8000-000000000005",
       "Type": "UpdateContactAttributes",
       "Transitions": {
-        "NextAction": "c0000000-0000-4000-8000-000000000001",
+        "NextAction": "e0000000-0000-4000-8000-000000000007",
         "Errors": [
           {
-            "NextAction": "c0000000-0000-4000-8000-000000000001",
+            "NextAction": "e0000000-0000-4000-8000-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${IdentitySuccessTransferMessage}"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000007",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000010",
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000010",
             "ErrorType": "NoMatchingError"
           }
         ]

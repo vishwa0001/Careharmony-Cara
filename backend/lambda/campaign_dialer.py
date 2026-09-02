@@ -428,7 +428,13 @@ def _start_next_call(batches_table, patients_table, connect, campaign_id: str) -
             print("[campaign_dialer] patient claim lost to another invocation")
             return
         try:
-            contact_id = _place_call(patients_table, connect, patient, campaign_id, campaign)
+            contact_id = _place_call(
+                patients_table=patients_table,
+                connect=connect,
+                patient=patient,
+                campaign_id=campaign_id,
+                campaign=campaign,
+            )
             if contact_id:
                 _save_contact_id(patients_table, patient, contact_id)
                 print(f"[campaign_dialer] started campaign={campaign_id} patientId={patient['patientId']} contactId={contact_id}")
@@ -648,6 +654,44 @@ def _parse_date(text: str, today: dt.date) -> dt.date | None:
     return None
 
 
+# Added because live test calls showed Cara acknowledging "call me back in 1
+# hour" / "in 10 minutes" (her prompt already tells her to accept phrasing like
+# this), but no callback ever actually happened -- this parser only understood
+# clock times ("10 AM") and relative days ("tomorrow"), never durations. This
+# fills that gap. Vague durations ("in a bit", "later today") still can't be
+# scheduled precisely and fall through to the existing "time unspecified" path.
+_DURATION_NUMBER_WORDS = {
+    "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "fifteen": 15, "twenty": 20, "thirty": 30, "forty-five": 45,
+}
+
+
+
+
+def _parse_relative_duration(text: str) -> dt.timedelta | None:
+    value = (text or "").lower().strip()
+    if not value or not re.search(r"\b(in|after)\b", value):
+        return None
+    if re.search(r"\bhalf\s+an?\s+hour\b", value):
+        return dt.timedelta(minutes=30)
+
+
+    number_pattern = r"(\d+|" + "|".join(_DURATION_NUMBER_WORDS) + r")"
+    hours = 0
+    minutes = 0
+    hour_match = re.search(rf"\b{number_pattern}\s*hours?\b", value)
+    if hour_match:
+        token = hour_match.group(1)
+        hours = int(token) if token.isdigit() else _DURATION_NUMBER_WORDS[token]
+    minute_match = re.search(rf"\b{number_pattern}\s*min(?:ute)?s?\b", value)
+    if minute_match:
+        token = minute_match.group(1)
+        minutes = int(token) if token.isdigit() else _DURATION_NUMBER_WORDS[token]
+    if hours == 0 and minutes == 0:
+        return None
+    return dt.timedelta(hours=hours, minutes=minutes)
+
 def _parse_callback_when(raw: str, timezone_name: str, now: dt.datetime | None = None) -> dt.datetime | None:
     """Parse the common exact callback forms Cara already accepts conversationally.
 
@@ -657,6 +701,10 @@ def _parse_callback_when(raw: str, timezone_name: str, now: dt.datetime | None =
     """
     zone = _normalize_timezone(timezone_name)
     current = (now or _now_dt()).astimezone(zone)
+    duration = _parse_relative_duration(raw)
+    if duration is not None:
+        return current + duration
+
     time_value = _parse_time(raw)
     if not time_value:
         return None
@@ -752,14 +800,19 @@ def _callback_plan(contact: dict, campaign: dict) -> dict | None:
     if attrs.get("recipientType") == "THIRD_PARTY" and attrs.get("targetAvailableNow") == "false":
         callback_date = str(attrs.get("callbackDate") or "").strip()
         callback_time = str(attrs.get("callbackTime") or "").strip()
-        if callback_date or callback_time:
+        raw_when = str(attrs.get("callbackWhen") or "").strip()
+        raw = raw_when or " ".join(x for x in (callback_date, callback_time) if x)
+        if callback_date or callback_time or raw_when:
+            parsed_dt = _parse_lex_callback(callback_date, callback_time, timezone_name) if (callback_date and callback_time) else None
+            if not parsed_dt and raw:
+                parsed_dt = _parse_callback_when(raw, timezone_name)
             return {
                 "requestedBy": "THIRD_PARTY",
                 "identityResult": attrs.get("identityResult") or "Denied",
                 "disposition": "Third Party - Callback Requested",
-                "callbackWhen": " ".join(x for x in (callback_date, callback_time) if x),
+                "callbackWhen": raw,
                 "callbackReason": "Intended customer unavailable",
-                "callbackAt": _parse_lex_callback(callback_date, callback_time, timezone_name),
+                "callbackAt": parsed_dt,
             }
     return None
 
@@ -1090,12 +1143,19 @@ def _start_callback_call(batches_table, patients_table, connect, campaign_id: st
     if not _claim_callback_patient(patients_table, patient):
         return
     try:
-        contact_id = _place_call(connect, patient, campaign_id, campaign)
-        _save_contact_id(patients_table, patient, contact_id)
-        print(
-            f"[campaign_dialer] callback started campaign={campaign_id} "
-            f"patientId={patient['patientId']} contactId={contact_id}"
+        contact_id = _place_call(
+            patients_table=patients_table,
+            connect=connect,
+            patient=patient,
+            campaign_id=campaign_id,
+            campaign=campaign,
         )
+        if contact_id:
+            _save_contact_id(patients_table, patient, contact_id)
+            print(
+                f"[campaign_dialer] callback started campaign={campaign_id} "
+                f"patientId={patient['patientId']} contactId={contact_id}"
+            )
     except (ClientError, ValueError) as error:
         code = error.response.get("Error", {}).get("Code", "ClientError") if isinstance(error, ClientError) else str(error)
         print(f"[campaign_dialer] callback call setup failed campaign={campaign_id} patientId={patient['patientId']} reason={code}")
