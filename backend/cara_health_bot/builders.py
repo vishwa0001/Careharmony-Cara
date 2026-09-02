@@ -1381,6 +1381,35 @@ def deceased_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
         "John is deceased",
         "he is no longer with us",
         "she is no longer with us",
+        # Live evidence - is no more & is dead disclosures
+        "Kevin is no more",
+        "Kevin Peterson is no more",
+        "he is no more",
+        "she is no more",
+        "they are no more",
+        "he's no more",
+        "she's no more",
+        "they're no more",
+        "Kevin Peterson is no more right now",
+        "Kevin is no more right now",
+        "is no more",
+        "is no more right now",
+        "no more right now",
+        "Kevin Peterson is dead",
+        "Kevin is dead",
+        "he is dead",
+        "he's dead",
+        "she is dead",
+        "she's dead",
+        "they are dead",
+        "they're dead",
+        "Kevin passed",
+        "Kevin Peterson passed",
+        "Kevin Peterson passed away",
+        "Kevin Peterson has passed",
+        "he passed",
+        "she passed",
+        "they passed",
         # Expanded - passed away / passed on
         "they passed away",
         "he has passed away",
@@ -1470,10 +1499,17 @@ def deceased_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
         "I am calling because he passed away recently",
         "I am calling because she passed away recently",
     ]
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for s in samples:
+        if s not in seen:
+            seen.add(s)
+            deduped.append(s)
+
     return {
         "intentName": "Deceased",
         "description": "Caller reports that the expected customer is deceased",
-        "sampleUtterances": [{"utterance": x} for x in samples],
+        "sampleUtterances": [{"utterance": x} for x in deduped],
         "intentClosingSetting": _identity_end_conversation(),
         "botId": bot_id,
         "botVersion": "DRAFT",
@@ -2705,7 +2741,9 @@ def cara_return_to_control_tools() -> list[dict[str, Any]]:
             "instruction": {
                 "instruction": (
                     "Use after a clear refusal, do-not-call request, safety situation, or when continuing would be "
-                    "inappropriate. Do NOT use EndConversation for busy, not-right-now, not-a-good-time, call-later, "
+                    "inappropriate. Do NOT produce any spoken text in <message> tags when calling EndConversation; "
+                    "the Connect flow handles all closing and safety messages after control returns. "
+                    "Do NOT use EndConversation for busy, not-right-now, not-a-good-time, call-later, "
                     "or another callback request. A sentence can begin with 'no' and still be a callback request when "
                     "the 'no' answers whether now is a good time. Never use endReason other as a substitute for "
                     "RequestCallback. Safety has the highest priority over every other intent. For urgent physical/medical "

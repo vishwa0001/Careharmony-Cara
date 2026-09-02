@@ -55,6 +55,7 @@ DISPOSITIONS = {
     "Confirmed": "Identity Confirmed",
     "Denied": "Wrong Person / Identity Denied",
     "Ambiguous": "Identity Unclear",
+    "Deceased": "Patient Deceased",
     None: "Unknown / Undetermined",
 }
 NOT_CONNECTED_REASONS = {
@@ -307,7 +308,7 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
             "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
             "representativeResponse": f"Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
             "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
-            "deceasedResponse": "I'm sorry. Thank you for letting me know. I won't continue this call. Take care.",
+            "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
             "refusalResponse": "Understood — thanks for your time today. Goodbye.",
             "passPhonePrompt": f"Thanks. Please pass the phone to {customer_name}.",
             "handoffIdentityPrompt": f"Hi. May I confirm I'm speaking with {customer_name}?",
@@ -500,7 +501,7 @@ def _disposition(identity_result: str | None) -> str:
 
 def _classify_contact(contact: dict) -> tuple[str | None, str]:
     identity_result = (contact.get("Attributes") or {}).get("identityResult")
-    if identity_result in {"Confirmed", "Denied", "Ambiguous"}:
+    if identity_result in {"Confirmed", "Denied", "Ambiguous", "Deceased"}:
         return identity_result, _disposition(identity_result)
     if contact.get("DisconnectReason") in NOT_CONNECTED_REASONS:
         return None, "No Answer / Not Connected"
@@ -783,6 +784,8 @@ def _delete_callback_schedule(name: str) -> None:
 
 def _callback_plan(contact: dict, campaign: dict) -> dict | None:
     attrs = contact.get("Attributes") or {}
+    if attrs.get("identityResult") == "Deceased":
+        return None
     timezone_name = str(campaign.get("timezone") or "UTC")
     identity_confirmed = attrs.get("identityResult") == "Confirmed" or attrs.get("identityConfirmed") == "true"
 

@@ -136,7 +136,7 @@ def main() -> int:
         "QinConnect NoMatchingCondition must route to the Return-to-Control Tool router"
     )
     compares = [a for a in actions if a["Type"] == "Compare"]
-    assert len(compares) == 8
+    assert len(compares) == 9
     compare_values = [a["Parameters"]["ComparisonValue"] for a in compares]
     assert compare_values.count("$.Lex.SessionAttributes.Tool") == 1
     assert compare_values.count("$.Lex.SessionAttributes.endReason") == 1
@@ -207,7 +207,7 @@ def main() -> int:
     assert availability_routes["SafetyMedical"] == "d0000000-0000-4000-8000-000000000001"
     assert availability_routes["SafetyBehavioral"] == "d0000000-0000-4000-8000-000000000002"
     assert availability_routes["TargetAvailableNow"] == "a0000000-0000-4000-8000-000000000006"
-    assert availability_routes["TargetUnavailable"] == "a0000000-0000-4000-8000-000000000007"
+    assert availability_routes["TargetUnavailable"] == "a0000000-0000-4000-8000-000000000011"
     patient_unavailable = actions_by_id["a0000000-0000-4000-8000-000000000011"]
     assert patient_unavailable["Parameters"]["Text"] == "$.Attributes.patientUnavailablePrompt"
     patient_routes = {
@@ -231,6 +231,13 @@ def main() -> int:
     assert set_queue["Transitions"]["NextAction"] == "90000000-0000-4000-8000-000000000002"
     assert transfer_queue["Type"] == "TransferContactToQueue"
     assert actions_by_id["90000000-0000-4000-8000-000000000004"]["Transitions"]["NextAction"] == "33333333-3333-4333-8333-333333333333"
+    coaching = actions_by_id["55555555-5555-4555-8555-555555555555"]
+    coaching_routes = {
+        c["Condition"]["Operands"][0]: c["NextAction"]
+        for c in coaching["Transitions"].get("Conditions", [])
+    }
+    assert coaching_routes["SafetyMedical"] == "d0000000-0000-4000-8000-000000000001"
+    assert coaching_routes["SafetyBehavioral"] == "d0000000-0000-4000-8000-000000000002"
     outcome_router = actions_by_id["b0000000-0000-4000-8000-000000000001"]
     outcome_routes = {
         c["Condition"]["Operands"][0]: c["NextAction"]
@@ -548,7 +555,7 @@ def main() -> int:
             "thirdPartyAvailabilityClarification": "Just to clarify, is Anish available to come to the phone now?",
             "representativeResponse": "Thanks for letting me know. I can only continue directly with Anish. Is Anish available to come to the phone?",
             "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
-            "deceasedResponse": "I'm sorry. Thank you for letting me know. I won't continue this call. Take care.",
+            "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
             "refusalResponse": "Understood. I won't continue this call. Thank you for your time.",
             "passPhonePrompt": "Thanks. Please pass the phone to Anish.",
             "handoffIdentityPrompt": "Hi. May I confirm I'm speaking with Anish?",

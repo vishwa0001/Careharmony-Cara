@@ -124,7 +124,7 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertIn("One clear affirmative answer is enough", raw)
         self.assertIn("speak transferMessage exactly once", raw)
         self.assertIn("Is now a good time to connect?", raw)
-        self.assertIn("configured respectful closing once", raw)
+        self.assertIn("Connect flow handles speaking any required closing or safety response", raw)
         self.assertIn("TRANSFER-FIRST GOAL", raw)
         self.assertIn("EscalateToHuman", raw)
         self.assertIn("RequestCallback", raw)
@@ -224,7 +224,10 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertNotIn("he is not available", {x["utterance"] for x in third_party_detected_intent_request(self.cfg, "ABCDEFGHIJ")["sampleUtterances"]})
         self.assertIn("wrong number", wrong)
         self.assertIn("no wrong number", wrong)
+        self.assertIn("no it's wrong number", wrong)
         self.assertIn("I am not John and this is the wrong number", wrong)
+        self.assertIn("there is no one here with this name", wrong)
+        self.assertIn("here with this name", wrong)
         self.assertIn("I am his caregiver", rep)
         self.assertIn("he passed away", deceased)
         self.assertIn("stop calling me", refusal)
@@ -360,9 +363,15 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertEqual(mark["Transitions"]["NextAction"], "33333333-3333-4333-8333-333333333333")
         q = actions["55555555-5555-4555-8555-555555555555"]
         self.assertEqual(q["Transitions"]["NextAction"], "b0000000-0000-4000-8000-000000000001")
+        coaching_routes = {
+            c["Condition"]["Operands"][0]: c["NextAction"]
+            for c in q["Transitions"].get("Conditions", [])
+        }
+        self.assertEqual(coaching_routes["SafetyMedical"], "d0000000-0000-4000-8000-000000000001")
+        self.assertEqual(coaching_routes["SafetyBehavioral"], "d0000000-0000-4000-8000-000000000002")
         q_errors = {e["ErrorType"]: e["NextAction"] for e in q["Transitions"]["Errors"]}
         # AMAZON.QinConnectIntent returns a fulfilled intent even for a Return-to-Control
-        # tool. With no intent conditions on this block, Connect uses NoMatchingCondition;
+        # tool. For standard utterances not matching explicit safety intents, Connect uses NoMatchingCondition;
         # that branch must inspect $.Lex.SessionAttributes.Tool instead of falling back.
         self.assertEqual(q_errors["NoMatchingCondition"], "b0000000-0000-4000-8000-000000000001")
         transfer_context = actions["b0000000-0000-4000-8000-000000000005"]
@@ -392,7 +401,7 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertEqual(routes["SafetyBehavioral"], "d0000000-0000-4000-8000-000000000002")
         self.assertEqual(routes["WrongNumber"], "e0000000-0000-4000-8000-000000000001")
         self.assertEqual(routes["TargetAvailableNow"], "a0000000-0000-4000-8000-000000000006")
-        self.assertEqual(routes["TargetUnavailable"], "a0000000-0000-4000-8000-000000000007")
+        self.assertEqual(routes["TargetUnavailable"], "a0000000-0000-4000-8000-000000000011")
         availability_2 = actions["a0000000-0000-4000-8000-000000000005"]
         routes_2 = {c["Condition"]["Operands"][0]: c["NextAction"] for c in availability_2["Transitions"]["Conditions"]}
         self.assertEqual(routes_2["WrongNumber"], "e0000000-0000-4000-8000-000000000001")
@@ -418,8 +427,8 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         time_slot = availability_callback_time_slot_request(self.cfg, "ABCDEFGHIJ", "KLMNOPQRST")
         self.assertEqual(date_slot["slotTypeId"], "AMAZON.Date")
         self.assertEqual(time_slot["slotTypeId"], "AMAZON.Time")
-        self.assertEqual(date_slot["valueElicitationSetting"]["slotConstraint"], "Required")
-        self.assertEqual(time_slot["valueElicitationSetting"]["slotConstraint"], "Required")
+        self.assertEqual(date_slot["valueElicitationSetting"]["slotConstraint"], "Optional")
+        self.assertEqual(time_slot["valueElicitationSetting"]["slotConstraint"], "Optional")
 
     def test_flow_uses_session_context_lambda_for_init_and_full_name_validation(self):
         invokes = [a for a in self._flow()["Actions"] if a["Type"] == "InvokeLambdaFunction"]

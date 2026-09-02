@@ -1387,6 +1387,7 @@ class CaraHealthBotDeployer:
                 "AvailabilityUnknown": availability_unknown_intent_request,
                 "RepresentativeWillingToProceed": availability_representative_willing_intent_request,
                 "WrongNumber": wrong_number_intent_request,
+                "Deceased": deceased_intent_request,
                 "SafetyMedical": safety_medical_intent_request,
                 "SafetyBehavioral": safety_behavioral_intent_request,
             }.items():
@@ -1517,6 +1518,7 @@ class CaraHealthBotDeployer:
                 bot_id, availability_representative_willing_intent_request(self.cfg, bot_id)
             )
             self._upsert_intent(bot_id, wrong_number_intent_request(self.cfg, bot_id))
+            self._upsert_intent(bot_id, deceased_intent_request(self.cfg, bot_id))
             self._upsert_intent(bot_id, safety_medical_intent_request(self.cfg, bot_id))
             self._upsert_intent(bot_id, safety_behavioral_intent_request(self.cfg, bot_id))
             self._upsert_intent(bot_id, availability_fallback_intent_request(self.cfg, bot_id))
@@ -3063,7 +3065,7 @@ class CaraHealthBotDeployer:
         )
         availability_by_name = {x.get("intentName"): x.get("intentId") for x in availability_intents}
         for required_intent in {
-            "TargetAvailableNow", "TargetUnavailable", "AvailabilityUnknown", "FallbackIntent"
+            "TargetAvailableNow", "TargetUnavailable", "AvailabilityUnknown", "Deceased", "FallbackIntent"
         }:
             if required_intent not in availability_by_name:
                 raise DeploymentError(f"Availability Lex bot is missing intent {required_intent}")
@@ -3316,6 +3318,11 @@ class CaraHealthBotDeployer:
                 raise DeploymentError("Behavioral safety does not override third-party availability")
             if availability_routes.get("WrongNumber") != "e0000000-0000-4000-8000-000000000001":
                 raise DeploymentError("WrongNumber is not routed from third-party availability to Denied/wrong-number exit")
+            if availability_routes.get("Deceased") != "c0000000-0000-4000-8000-000000000003":
+                raise DeploymentError("Deceased is not routed from third-party availability to deceased exit")
+            deceased_check = flow_actions["c0000000-0000-4000-8000-000000000003"]
+            if deceased_check.get("Type") != "MessageParticipant" or deceased_check.get("Transitions", {}).get("NextAction") != "77777777-7777-4777-8777-777777777777":
+                raise DeploymentError("Deceased exit block does not play message and disconnect directly")
             if availability_routes.get("TargetAvailableNow") != "a0000000-0000-4000-8000-000000000006":
                 raise DeploymentError("Available third party path does not lead to pass-the-phone re-verification")
             if availability_routes.get("TargetUnavailable") != "a0000000-0000-4000-8000-000000000011":
@@ -3327,6 +3334,8 @@ class CaraHealthBotDeployer:
             }
             if availability_2_routes.get("WrongNumber") != "e0000000-0000-4000-8000-000000000001":
                 raise DeploymentError("WrongNumber is not routed from availability clarification to Denied/wrong-number exit")
+            if availability_2_routes.get("Deceased") != "c0000000-0000-4000-8000-000000000003":
+                raise DeploymentError("Deceased is not routed from availability clarification to deceased exit")
             direct_unavailable = flow_actions.get("a0000000-0000-4000-8000-000000000011", {})
             if direct_unavailable.get("Parameters", {}).get("Text") != "$.Attributes.patientUnavailablePrompt":
                 raise DeploymentError("PatientUnavailable path does not use the direct callback prompt")
