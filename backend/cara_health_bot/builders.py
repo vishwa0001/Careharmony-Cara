@@ -168,6 +168,10 @@ def identity_lex_locale_request(cfg: ProjectConfig, bot_id: str) -> dict[str, An
         "localeId": cfg.locale,
         "description": "US English identity confirmation gate",
         "nluIntentConfidenceThreshold": cfg.identity_nlu_confidence_threshold,
+        "voiceSettings": {
+            "voiceId": cfg.voice_id,
+            "engine": "neural",
+        },
     }
 
 
@@ -180,6 +184,11 @@ def _identity_end_conversation() -> dict[str, Any]:
 
 def identity_confirmed_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
     samples = [
+        # Bare affirmations
+        "yes",
+        "yeah",
+        "yep",
+        "sure",
         # Direct affirmations with name
         "yes this is me",
         "yes I am",
@@ -584,11 +593,7 @@ def identity_denied_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str,
 
 def identity_ambiguous_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
     samples = [
-        # Original
-        "yes",
-        "yeah",
-        "yep",
-        "sure",
+        # Questions and evasive utterances
         "hello",
         "who is this",
         "who is calling",
@@ -1953,6 +1958,10 @@ def availability_lex_locale_request(cfg: ProjectConfig, bot_id: str) -> dict[str
         "localeId": cfg.locale,
         "description": "US English third-party availability conversation",
         "nluIntentConfidenceThreshold": 0.50,
+        "voiceSettings": {
+            "voiceId": cfg.voice_id,
+            "engine": "neural",
+        },
     }
 
 
@@ -2741,9 +2750,7 @@ def cara_return_to_control_tools() -> list[dict[str, Any]]:
             "instruction": {
                 "instruction": (
                     "Use after a clear refusal, do-not-call request, safety situation, or when continuing would be "
-                    "inappropriate. Do NOT produce any spoken text in <message> tags when calling EndConversation; "
-                    "the Connect flow handles all closing and safety messages after control returns. "
-                    "Do NOT use EndConversation for busy, not-right-now, not-a-good-time, call-later, "
+                    "inappropriate. Do NOT use EndConversation for busy, not-right-now, not-a-good-time, call-later, "
                     "or another callback request. A sentence can begin with 'no' and still be a callback request when "
                     "the 'no' answers whether now is a good time. Never use endReason other as a substitute for "
                     "RequestCallback. Safety has the highest priority over every other intent. For urgent physical/medical "
@@ -2859,6 +2866,10 @@ def lex_locale_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
         "localeId": cfg.locale,
         "description": "US English realtime Cara Health Bot conversation",
         "nluIntentConfidenceThreshold": 0.40,
+        "voiceSettings": {
+            "voiceId": cfg.voice_id,
+            "engine": "neural",
+        },
     }
 
 

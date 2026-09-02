@@ -22,8 +22,7 @@
     {
       "Parameters": {
         "TextToSpeechVoice": "${VoiceId}",
-        "TextToSpeechEngine": "Generative",
-        "TextToSpeechStyle": "Generative"
+        "TextToSpeechEngine": "Neural"
       },
       "Identifier": "22222222-2222-4222-8222-222222222222",
       "Type": "UpdateContactTextToSpeechVoice",

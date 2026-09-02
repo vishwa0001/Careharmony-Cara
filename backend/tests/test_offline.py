@@ -170,13 +170,13 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertIn("safety_medical", reasons)
         self.assertIn("safety_behavioral", reasons)
 
-    def test_identity_confirmed_excludes_bare_yes(self):
+    def test_identity_confirmed_includes_bare_yes(self):
         req = identity_confirmed_intent_request(self.cfg, "ABCDEFGHIJ")
         samples = {x["utterance"] for x in req["sampleUtterances"]}
         self.assertIn("yes this is me", samples)
         self.assertIn("speaking", samples)
-        self.assertNotIn("yes", samples)
-        self.assertNotIn("yeah", samples)
+        self.assertIn("yes", samples)
+        self.assertIn("yeah", samples)
 
     def test_identity_named_confirmation_uses_first_and_last_name_slots(self):
         base = identity_named_confirmation_intent_request(self.cfg, "ABCDEFGHIJ")
@@ -198,15 +198,20 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertEqual(first["valueElicitationSetting"]["slotConstraint"], "Optional")
         self.assertEqual(last["valueElicitationSetting"]["slotConstraint"], "Optional")
 
-    def test_identity_ambiguous_contains_bare_yes_and_questions(self):
-        req = identity_ambiguous_intent_request(self.cfg, "ABCDEFGHIJ")
-        samples = {x["utterance"] for x in req["sampleUtterances"]}
-        self.assertIn("yes", samples)
-        self.assertIn("yeah", samples)
-        self.assertIn("who is this", samples)
-        self.assertIn("may I know whom I am talking with", samples)
-        self.assertIn("may I know who I'm talking with", samples)
-        self.assertIn("who are you looking for", samples)
+    def test_identity_confirmed_contains_bare_yes_and_ambiguous_contains_questions(self):
+        confirmed_req = identity_confirmed_intent_request(self.cfg, "ABCDEFGHIJ")
+        confirmed_samples = {x["utterance"] for x in confirmed_req["sampleUtterances"]}
+        self.assertIn("yes", confirmed_samples)
+        self.assertIn("yeah", confirmed_samples)
+
+        ambiguous_req = identity_ambiguous_intent_request(self.cfg, "ABCDEFGHIJ")
+        ambiguous_samples = {x["utterance"] for x in ambiguous_req["sampleUtterances"]}
+        self.assertNotIn("yes", ambiguous_samples)
+        self.assertNotIn("yeah", ambiguous_samples)
+        self.assertIn("who is this", ambiguous_samples)
+        self.assertIn("may I know whom I am talking with", ambiguous_samples)
+        self.assertIn("may I know who I'm talking with", ambiguous_samples)
+        self.assertIn("who are you looking for", ambiguous_samples)
 
     def test_identity_recipient_semantics_are_separated(self):
         denied = {x["utterance"] for x in identity_denied_intent_request(self.cfg, "ABCDEFGHIJ")["sampleUtterances"]}

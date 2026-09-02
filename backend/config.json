@@ -13,7 +13,7 @@
   "botAliasName": "Live",
   "flowName": "CaraHealthBotNova2Sonic",
   "locale": "en_US",
-  "voiceId": "Matthew",
+  "voiceId": "Joanna",
   "orchestrationModelId": "us.amazon.nova-lite-v1:0",
   "speechModelId": "amazon.nova-2-sonic-v1:0",
   "phoneCountryCode": "US",
