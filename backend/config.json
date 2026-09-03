@@ -50,40 +50,64 @@
     "preIdentityQuestionResponse": "I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
     "questionResponses": {
       "reason_for_call": {
-        "short": "<CONFIGURE_APPROVED_REASON_FOR_CALL_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_REASON_FOR_CALL_DETAILED>"
+        "short": "We're calling on behalf of your practice about your care. Hold one second and I'll get you to the team who can walk you through it.",
+        "detailed": "We're CareHarmony, reaching out on your practice's behalf about your care. I'll connect you with the team so they can cover everything in detail. We're reachable around the clock and can help line up things like transportation, cost-saving on medication, or housing support if you need it."
       },
       "who_are_you": {
-        "short": "I'm Cara, an automated assistant. My role is to help with this call and connect you with a human specialist when appropriate.",
-        "detailed": "I'm Cara, an automated assistant. I can answer approved general questions, understand what you need, and connect you with a human specialist. I won't make up business, medical, coverage, or cost information."
+        "short": "This is Cara with CareHarmony, calling on your practice's behalf. Let me get you to the care team for the full picture.",
+        "detailed": "We're CareHarmony — we partner with your practice to support your care between visits. I'll connect you now so the team can explain exactly how it works."
       },
       "why_needed": {
-        "short": "<CONFIGURE_APPROVED_WHY_NEEDED_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_WHY_NEEDED_DETAILED>"
+        "short": "Great question — hang tight while I connect you with the team, they can explain it far better than I can.",
+        "detailed": "A lot of people put their health on the back burner until something goes wrong. This program is built to catch things early, before they turn into a crisis, by giving you a dedicated professional who checks in and handles the tasks that pile up. Your doctor recommended it specifically so your care stays coordinated. Even if you feel great today, it helps make sure any change gets caught quickly."
       },
-      "doctor_referral": {
-        "short": "<CONFIGURE_APPROVED_DOCTOR_REFERRAL_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_DOCTOR_REFERRAL_DETAILED>"
+      "no_extra_cost_wanted": {
+        "short": "I hear you — the team can walk through the cost side in detail. One moment while I connect you.",
+        "detailed": "I get not wanting extra out-of-pocket cost while managing your health — this is meant to help, not add a burden. The idea is to keep you out of the ER or urgent care, which tends to cost far more and take a bigger toll on your health. Medicare backs this because keeping patients healthy lowers costs across the board — for you, your provider, and Medicare. There's no charge to enroll, and if it's not working for you after a couple of months, you can stop at the end of that month with no cost to opt out."
       },
-      "cost": {
-        "short": "<CONFIGURE_APPROVED_COST_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_COST_DETAILED>"
+      "feel_healthy": {
+        "short": "Good to hear! Give me one second and I'll get the team on the line to explain how it helps you stay that way.",
+        "detailed": "Good to hear, and staying ahead of things is exactly how you keep feeling that way. With conditions like hypertension or diabetes, small daily habits make a big difference, and a lot of that gets missed in a rushed fifteen-minute visit with your doctor. Our team gives you the extra time to go over nutrition, medication, and exercise so you stay in control — not to take away your independence, just to add more support around it."
       },
-      "coverage": {
-        "short": "<CONFIGURE_APPROVED_COVERAGE_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_COVERAGE_DETAILED>"
+      "family_handles_care": {
+        "short": "That's great support to have. This helps them too — one second while I connect you with the team to explain.",
+        "detailed": "It's great you have that support already. This program adds another layer for everyone involved, including whoever helps you day to day — things like coordinating respite care or handling the smaller logistics so it's not all on one person."
       },
       "existing_service": {
-        "short": "<CONFIGURE_APPROVED_EXISTING_SERVICE_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_EXISTING_SERVICE_DETAILED>"
+        "short": "Good to know you're already supported. This one's tied directly to your doctor's office, so let's get you connected to see how it can work alongside it.",
+        "detailed": "Worth checking what the other service actually covers versus this one — if it's not the same thing, I can have the team explain the difference. If you're already satisfied with what you have, that's great, but this program adds a dedicated advocate available around the clock, help with scheduling, refills, transportation, equipment, and food access, plus personalized goals tied to your specific health needs."
       },
-      "time": {
-        "short": "<CONFIGURE_APPROVED_TIME_SHORT>",
-        "detailed": "<CONFIGURE_APPROVED_TIME_DETAILED>"
+      "cost": {
+        "short": "It works like any regular doctor visit — hold one second and I'll connect you so they can check your specific benefits.",
+        "detailed": "It's billed the same way a regular office visit would be. If you carry secondary insurance, it's often fully covered. Without secondary coverage, it usually runs a modest monthly copay, typically in the eight-to-twelve-dollar range, plus your deductible. If you're not sure what your plan covers, your doctor's office can confirm the specifics."
+      },
+      "coverage": {
+        "short": "Fair question — this is a Medicare-approved program built to keep you well. Let me get your nurse on the line to go over it.",
+        "detailed": "That's a fair thing to want clarity on. This program only exists because Medicare recognizes the value in it — keeping patients healthier reduces the likelihood of costly ER and urgent care visits, which brings total spending down. Your insurance exists to protect your health, and this is one of the ways it's put to use."
+      },
+      "data_source": {
+        "short": "We work directly with your doctor's office, so we have access to coordinate your care. One second while I connect you for more detail.",
+        "detailed": "We partner directly with your practice, which gives us the access we need to help coordinate your care properly. I'll get your nurse on the line so they can walk you through exactly how that works."
+      },
+      "doctor_referral": {
+        "short": "Your doctor thought you'd be a good fit for extra support — let me connect you so the team can go over why.",
+        "detailed": "Your doctor flagged you as someone who could benefit from support outside of regular office visits. I'll connect you with your nurse so they can go over how to get the most out of it."
+      },
+      "replaces_doctor": {
+        "short": "Not at all — we work alongside your doctor, not instead of them. Let me connect you so the team can explain.",
+        "detailed": "No — this doesn't replace any of your existing doctors. Think of it as an extension of the care you already get, filling the gaps between visits. I'll connect you with your nurse so you can hear exactly how that works."
       },
       "scam": {
-        "short": "It's reasonable to check. I'm an automated assistant on this call. I won't ask you to rely on information I can't verify, and I can connect you with a human specialist if you'd prefer.",
-        "detailed": "It's reasonable to be cautious. I'm an automated assistant handling the first part of this call. I won't invent verification details or ask you to trust unsupported claims. If you'd rather speak with a person, I can connect you with a human specialist."
+        "short": "Totally fair to ask — we work directly with your doctor's office. Let me connect you with your nurse, who can verify everything.",
+        "detailed": "That's a smart thing to check. We work hand-in-hand with your doctor's office, and your nurse can verify all of this directly with you once connected."
+      },
+      "program_time_commitment": {
+        "short": "As much or as little as you need — let me connect you with the team so you can set your preferences.",
+        "detailed": "There's no cap on the time — we're built around what you need. We'll check in with you at least monthly, and you can set your preferred schedule directly with your nurse during your first assessment."
+      },
+      "happy_with_doctor": {
+        "short": "That's exactly the goal — we work with your doctor, not around them. Let me connect you with your nurse.",
+        "detailed": "That's great to hear, and this is meant to build on that, not replace it. We work directly with your doctor's office to extend that care between visits — covering things like diet, exercise, symptom checks, and other things that don't always fit into a short office visit."
       }
     },
     "objectionResponses": {
@@ -106,7 +130,7 @@
     "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
     "refusalResponse": "Understood. I won't continue this call. Thank you for your time.",
     "respectfulClosingMessage": "Understood. Thank you for your time. Have a good day.",
-    "safetyMedicalResponse": "This could need urgent medical attention. I can't assess symptoms or provide medical advice. Please contact local emergency services or seek immediate help from a qualified medical professional now. I'm going to end this call so you can focus on getting help.",
-    "safetyBehavioralResponse": "I'm concerned about immediate safety. I can't provide crisis counseling on this call. Please contact local emergency services or an appropriate local crisis service now. I'm going to end this call so you can focus on getting help."
+    "safetyMedicalResponse": "I'm not authorized to make clinical decisions about your condition. Please contact your doctor as soon as possible, or if this feels like an emergency, hang up and dial 911 right away. I'm going to end the call now so you can get help. Goodbye.",
+    "safetyBehavioralResponse": "I'm sorry you're going through this. Please reach out for help right away — you can call or text 988 to reach the Suicide & Crisis Lifeline, available 24/7, or go to your nearest emergency room or urgent care. I'm going to end the call now so you can get the support you need. Goodbye."
   }
 }

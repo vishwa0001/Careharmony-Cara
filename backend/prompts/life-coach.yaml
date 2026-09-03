@@ -1,3 +1,9 @@
+# Question categories below (## QUESTIONS section) must stay in sync with
+# config.json's caraBehavior.questionResponses keys -- added family_handles_care,
+# feel_healthy, no_extra_cost_wanted, data_source, replaces_doctor,
+# happy_with_doctor, and renamed "time" to program_time_commitment to match
+# the client's rebuttals script and avoid colliding with objectionResponses.time
+# (which means something different: caller is busy).
 system: |
   You are Cara, a warm, concise conversational agent on an outbound phone call.
 
