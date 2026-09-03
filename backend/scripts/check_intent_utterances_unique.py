@@ -22,7 +22,8 @@ from cara_health_bot.builders import (
 cfg = load_config()
 bot_id = "test-bot"
 
-builders = {
+# 1. Identity Bot Intents
+identity_bot_builders = {
     "IdentityConfirmed": identity_confirmed_intent_request,
     "IdentityNamedConfirmation": lambda c, b: identity_named_confirmation_intent_request(c, b, with_slots=True),
     "IdentityDenied": identity_denied_intent_request,
@@ -37,23 +38,42 @@ builders = {
     "SafetyBehavioral": safety_behavioral_intent_request,
 }
 
-intent_samples = {}
-utterance_to_intents = {}
+# 2. Coaching Bot Intents
+coaching_bot_builders = {
+    "SafetyMedical": safety_medical_intent_request,
+    "SafetyBehavioral": safety_behavioral_intent_request,
+}
 
-for name, builder in builders.items():
-    req = builder(cfg, bot_id)
-    samples = [x["utterance"] for x in req.get("sampleUtterances", [])]
-    intent_samples[name] = samples
-    print(f"Intent {name}: {len(samples)} utterances")
-    if len(samples) > 1500:
-        print(f"  WARNING: {name} exceeds Lex limit of 1500 ({len(samples)})")
-    for u in samples:
-        utterance_to_intents.setdefault(u.lower(), []).append(name)
+bots = {
+    "Identity Bot (4M8I8HGPND)": identity_bot_builders,
+    "Coaching Bot (4S3WG7D9ZQ)": coaching_bot_builders,
+}
 
-duplicates = {u: intents for u, intents in utterance_to_intents.items() if len(intents) > 1}
-if duplicates:
-    print(f"\nFOUND {len(duplicates)} DUPLICATE UTTERANCES ACROSS INTENTS:")
-    for u, intents in duplicates.items():
-        print(f"  '{u}' in: {intents}")
+all_passed = True
+
+for bot_name, builders in bots.items():
+    print(f"\n==================== {bot_name} ====================")
+    utterance_to_intents = {}
+    for name, builder in builders.items():
+        req = builder(cfg, bot_id)
+        samples = [x["utterance"] for x in req.get("sampleUtterances", [])]
+        print(f"Intent {name}: {len(samples)} utterances")
+        if len(samples) > 1500:
+            print(f"  WARNING: {name} exceeds Lex limit of 1500 ({len(samples)})")
+        for u in samples:
+            utterance_to_intents.setdefault(u.lower().strip(), []).append(name)
+
+    duplicates = {u: intents for u, intents in utterance_to_intents.items() if len(intents) > 1}
+    if duplicates:
+        all_passed = False
+        print(f"FOUND {len(duplicates)} DUPLICATE UTTERANCES ACROSS INTENTS IN {bot_name}:")
+        for u, intents in duplicates.items():
+            print(f"  '{u}' in: {intents}")
+    else:
+        print(f"ALL UTTERANCES ARE UNIQUE ACROSS ALL INTENTS IN {bot_name}! OK!")
+
+if all_passed:
+    print("\nOVERALL STATUS: ZERO INTENT COLLISIONS ACROSS ALL BOTS!")
 else:
-    print("\nALL UTTERANCES ARE UNIQUE ACROSS ALL INTENTS! OK!")
+    print("\nOVERALL STATUS: COLLISIONS DETECTED")
+

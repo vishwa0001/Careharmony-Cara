@@ -287,6 +287,41 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertGreaterEqual(len(medical), 25)
         self.assertGreaterEqual(len(behavioral), 25)
 
+    def test_coaching_bot_threshold_and_safety_intents_unambiguous(self):
+        from cara_health_bot.builders import lex_locale_request
+        locale_req = lex_locale_request(self.cfg, "4S3WG7D9ZQ")
+        self.assertEqual(locale_req["nluIntentConfidenceThreshold"], 0.85)
+
+        medical_samples = {x["utterance"].lower().strip() for x in safety_medical_intent_request(self.cfg, "4S3WG7D9ZQ")["sampleUtterances"]}
+        behavioral_samples = {x["utterance"].lower().strip() for x in safety_behavioral_intent_request(self.cfg, "4S3WG7D9ZQ")["sampleUtterances"]}
+
+        benign_test_phrases = {
+            "my son handles my care",
+            "my daughter handles my care",
+            "why are you calling",
+            "who are you",
+            "i already have a similar service",
+            "i'm happy with my doctor",
+            "not interested",
+            "yes please connect",
+            "can you please reschedule",
+        }
+        for phrase in benign_test_phrases:
+            self.assertNotIn(phrase, medical_samples, f"Benign phrase '{phrase}' must not be in SafetyMedical")
+            self.assertNotIn(phrase, behavioral_samples, f"Benign phrase '{phrase}' must not be in SafetyBehavioral")
+
+    def test_life_coach_prompt_contains_all_15_section_5_rebuttals(self):
+        prompt_text = self.cfg.prompt_path.read_text(encoding="utf-8")
+        
+        expected_topics = [
+            "reason_for_call", "who_are_you", "why_needed", "doctor_referral",
+            "cost", "coverage", "existing_service", "time", "scam",
+            "replace_doctor", "feel_healthy", "family_handles",
+            "medicare_insurance", "where_info_obtained", "happy_with_doctor"
+        ]
+        for topic in expected_topics:
+            self.assertIn(f"{topic}:", prompt_text, f"life-coach.yaml missing topic {topic}")
+
     def test_safety_is_first_route_in_all_pre_q_conversational_lex_actions(self):
         actions = [a for a in self._flow()["Actions"] if a["Type"] == "ConnectParticipantWithLexBot"]
         pre_q = [a for a in actions if a["Parameters"]["LexV2Bot"]["AliasArn"] in {"${IdentityLexBotAliasArn}", "${AvailabilityLexBotAliasArn}"}]

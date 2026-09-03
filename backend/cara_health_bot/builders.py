@@ -2860,7 +2860,7 @@ def lex_locale_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
         "botVersion": "DRAFT",
         "localeId": cfg.locale,
         "description": "US English realtime Cara Health Bot conversation",
-        "nluIntentConfidenceThreshold": 0.40,
+        "nluIntentConfidenceThreshold": 0.85,
         "unifiedSpeechSettings": {
             "speechFoundationModel": {
                 "modelArn": f"arn:aws:bedrock:{cfg.region}::foundation-model/{cfg.speech_model_id}"

@@ -1010,6 +1010,51 @@ class CaraHealthBotDeployer:
             None,
         )
 
+    def _intent_matches_expected(
+        self, actual: dict[str, Any], expected: dict[str, Any]
+    ) -> bool:
+        """Structurally compare an actual describe_intent() payload with builder's expected request."""
+        # 1. Compare description if specified
+        if expected.get("description") is not None:
+            if actual.get("description") != expected.get("description"):
+                return False
+
+        # 2. Compare sample utterances as normalized sets
+        actual_samples = {
+            x.get("utterance", "").strip().lower()
+            for x in actual.get("sampleUtterances", [])
+            if x.get("utterance")
+        }
+        expected_samples = {
+            x.get("utterance", "").strip().lower()
+            for x in expected.get("sampleUtterances", [])
+            if x.get("utterance")
+        }
+        if actual_samples != expected_samples:
+            return False
+
+        # 3. Compare intentClosingSetting
+        actual_closing = actual.get("intentClosingSetting")
+        expected_closing = expected.get("intentClosingSetting")
+        actual_closing_active = (actual_closing or {}).get("active", False)
+        expected_closing_active = (expected_closing or {}).get("active", False)
+        if actual_closing_active != expected_closing_active:
+            return False
+        if expected_closing_active and actual_closing.get("nextStep") != expected_closing.get("nextStep"):
+            return False
+
+        # 4. Compare fulfillmentCodeHook
+        actual_hook = actual.get("fulfillmentCodeHook")
+        expected_hook = expected.get("fulfillmentCodeHook")
+        expected_has_post_spec = bool((expected_hook or {}).get("postFulfillmentStatusSpecification"))
+        actual_has_post_spec = bool((actual_hook or {}).get("postFulfillmentStatusSpecification"))
+        if actual_has_post_spec != expected_has_post_spec:
+            return False
+        if expected_has_post_spec and actual_hook.get("postFulfillmentStatusSpecification") != expected_hook.get("postFulfillmentStatusSpecification"):
+            return False
+
+        return True
+
     def _identity_version_is_correct(self, bot_id: str, version: str) -> bool:
         if not version or version == "DRAFT":
             return False
@@ -1061,13 +1106,7 @@ class CaraHealthBotDeployer:
                     intentId=intent_id,
                 )
                 expected = builder(self.cfg, bot_id)
-                actual_samples = {
-                    x.get("utterance") for x in actual.get("sampleUtterances", [])
-                }
-                expected_samples = {
-                    x.get("utterance") for x in expected.get("sampleUtterances", [])
-                }
-                if actual_samples != expected_samples:
+                if not self._intent_matches_expected(actual, expected):
                     return False
 
             named_id = by_name.get("IdentityNamedConfirmation")
@@ -1417,9 +1456,7 @@ class CaraHealthBotDeployer:
                     intentId=intent_id,
                 )
                 expected = builder(self.cfg, bot_id)
-                if {x.get("utterance") for x in actual.get("sampleUtterances", [])} != {
-                    x.get("utterance") for x in expected.get("sampleUtterances", [])
-                }:
+                if not self._intent_matches_expected(actual, expected):
                     return False
             unavailable_id = by_name.get("TargetUnavailable")
             if not unavailable_id or "FallbackIntent" not in by_name:
@@ -1433,9 +1470,7 @@ class CaraHealthBotDeployer:
             expected_unavailable = availability_unavailable_intent_request(
                 self.cfg, bot_id, slot_priorities=[]
             )
-            if {x.get("utterance") for x in unavailable.get("sampleUtterances", [])} != {
-                x.get("utterance") for x in expected_unavailable.get("sampleUtterances", [])
-            }:
+            if not self._intent_matches_expected(unavailable, expected_unavailable):
                 return False
             slots = list(
                 self._paginate(
@@ -1967,6 +2002,13 @@ class CaraHealthBotDeployer:
             if "FallbackIntent" not in by_name:
                 return False, None
 
+            expected_locale = lex_locale_request(self.cfg, bot_id)
+            if locale.get("nluIntentConfidenceThreshold") != expected_locale.get("nluIntentConfidenceThreshold"):
+                return False, None
+
+            if "GeneralConversation" in by_name:
+                return False, None
+
             expected_safety_builders = {
                 "SafetyMedical": safety_medical_intent_request,
                 "SafetyBehavioral": safety_behavioral_intent_request,
@@ -1982,13 +2024,7 @@ class CaraHealthBotDeployer:
                     intentId=intent_id,
                 )
                 expected_intent = builder(self.cfg, bot_id)
-                actual_samples = {
-                    x.get("utterance") for x in actual_intent.get("sampleUtterances", [])
-                }
-                expected_samples = {
-                    x.get("utterance") for x in expected_intent.get("sampleUtterances", [])
-                }
-                if actual_samples != expected_samples:
+                if not self._intent_matches_expected(actual_intent, expected_intent):
                     return False, None
 
             return True, published_intent_id
@@ -2315,6 +2351,26 @@ class CaraHealthBotDeployer:
             self.lex.create_bot_locale(**locale_request)
         self._wait_draft_locale_stable(bot_id)
 
+        draft_intents = {
+            x.get("intentName"): x.get("intentId")
+            for x in self._paginate(
+                self.lex,
+                "list_intents",
+                "intentSummaries",
+                botId=bot_id,
+                botVersion="DRAFT",
+                localeId=self.cfg.locale,
+                maxResults=100,
+            )
+        }
+        if "GeneralConversation" in draft_intents:
+            self.lex.delete_intent(
+                botId=bot_id,
+                botVersion="DRAFT",
+                localeId=self.cfg.locale,
+                intentId=draft_intents["GeneralConversation"],
+            )
+
         q_intent_id = self._upsert_intent(
             bot_id, lex_qinconnect_intent_request(self.cfg, bot_id, assistant_arn)
         )
@@ -2375,13 +2431,11 @@ class CaraHealthBotDeployer:
         if not conversation_log_group:
             raise DeploymentError("Lex conversation log group was not initialized")
         conversation_log_group_arn = f"arn:aws:logs:{self.cfg.region}:{self.account_id}:log-group:{conversation_log_group}"
-        session_context_lambda_arn = self.state.resources.get("sessionContextLambdaArn")
         alias_request = lex_alias_request(
             self.cfg,
             bot_id,
             version,
             conversation_log_group_arn,
-            lambda_code_hook_arn=session_context_lambda_arn,
         )
         if alias:
             alias_id = alias["botAliasId"]

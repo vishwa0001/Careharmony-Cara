@@ -389,6 +389,8 @@ def main() -> int:
     validate_api(lex, "UpdateBot", lex_bot_update_request(cfg, bot_id, role_arn))
     validate_api(lex, "CreateBotLocale", lex_locale_request(cfg, bot_id))
     validate_api(lex, "CreateIntent", lex_qinconnect_intent_request(cfg, bot_id, assistant_arn))
+    validate_api(lex, "CreateIntent", safety_medical_intent_request(cfg, bot_id))
+    validate_api(lex, "CreateIntent", safety_behavioral_intent_request(cfg, bot_id))
     validate_api(lex, "CreateIntent", lex_fallback_intent_request(cfg, bot_id))
     alias_req = lex_alias_request(cfg, bot_id, "1", lex_log_arn)
     validate_api(lex, "CreateBotAlias", alias_req)
