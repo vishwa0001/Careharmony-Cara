@@ -756,7 +756,7 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertIn("deceasedResponse", cara)
         self.assertIn("safetyMedicalResponse", cara)
         self.assertIn("safetyBehavioralResponse", cara)
-        self.assertTrue(cara["questionResponses"]["cost"]["short"].startswith("<CONFIGURE_"))
+        self.assertFalse(cara["questionResponses"]["cost"]["short"].startswith("<CONFIGURE_"))
 
     def test_config_has_recording_storage_names(self):
         self.assertEqual(self.cfg.recording_bucket(self.account), f"cara-health-bot-recordings-{self.account}-us-east-1")
