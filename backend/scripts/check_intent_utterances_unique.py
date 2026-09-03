@@ -1,5 +1,7 @@
+from pathlib import Path
 import sys
-sys.path.insert(0, "backend")
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from cara_health_bot.config import load_config
 from cara_health_bot.builders import (

@@ -1931,7 +1931,20 @@ class CaraHealthBotDeployer:
             )
             if not model_arn.endswith("/" + self.cfg.speech_model_id):
                 return False, None
-            published_intent_id = self._find_intent_id(bot_id, str(version), "AmazonQinConnect")
+
+            by_name = {
+                x.get("intentName"): x.get("intentId")
+                for x in self._paginate(
+                    self.lex,
+                    "list_intents",
+                    "intentSummaries",
+                    botId=bot_id,
+                    botVersion=str(version),
+                    localeId=self.cfg.locale,
+                    maxResults=100,
+                )
+            }
+            published_intent_id = by_name.get("AmazonQinConnect")
             if not published_intent_id:
                 return False, None
             intent = self.lex.describe_intent(
@@ -1948,7 +1961,37 @@ class CaraHealthBotDeployer:
                 .get("qInConnectAssistantConfiguration", {})
                 .get("assistantArn")
             )
-            return actual == assistant_arn, published_intent_id
+            if actual != assistant_arn:
+                return False, None
+
+            if "FallbackIntent" not in by_name:
+                return False, None
+
+            expected_safety_builders = {
+                "SafetyMedical": safety_medical_intent_request,
+                "SafetyBehavioral": safety_behavioral_intent_request,
+            }
+            for name, builder in expected_safety_builders.items():
+                intent_id = by_name.get(name)
+                if not intent_id:
+                    return False, None
+                actual_intent = self.lex.describe_intent(
+                    botId=bot_id,
+                    botVersion=str(version),
+                    localeId=self.cfg.locale,
+                    intentId=intent_id,
+                )
+                expected_intent = builder(self.cfg, bot_id)
+                actual_samples = {
+                    x.get("utterance") for x in actual_intent.get("sampleUtterances", [])
+                }
+                expected_samples = {
+                    x.get("utterance") for x in expected_intent.get("sampleUtterances", [])
+                }
+                if actual_samples != expected_samples:
+                    return False, None
+
+            return True, published_intent_id
         except ClientError:
             return False, None
 

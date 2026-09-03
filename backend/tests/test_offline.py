@@ -272,12 +272,18 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
     def test_safety_intents_are_semantic_and_encode_priority_conflicts(self):
         medical = {x["utterance"] for x in safety_medical_intent_request(self.cfg, "ABCDEFGHIJ")["sampleUtterances"]}
         behavioral = {x["utterance"] for x in safety_behavioral_intent_request(self.cfg, "ABCDEFGHIJ")["sampleUtterances"]}
-        self.assertIn("I am not interested because I have crushing chest pain", medical)
-        self.assertIn("I am busy but I am having trouble breathing", medical)
-        self.assertIn("call me later my blood sugar is dangerously low", medical)
-        self.assertIn("I do not want this I want to die", behavioral)
-        self.assertIn("I am busy but I do not feel safe", behavioral)
-        self.assertIn("stop calling me someone is hurting me", behavioral)
+        # Standalone unambiguous medical crises
+        self.assertIn("I am having crushing chest pain", medical)
+        self.assertIn("I cannot catch my breath", medical)
+        self.assertIn("my blood sugar is dangerously low", medical)
+        # Standalone unambiguous behavioral crises
+        self.assertIn("I want to die", behavioral)
+        self.assertIn("I do not feel safe right now", behavioral)
+        self.assertIn("someone is hurting me", behavioral)
+        # Compound phrases must NOT be present to prevent Lex NLU false positives
+        self.assertNotIn("I am not interested because I have crushing chest pain", medical)
+        self.assertNotIn("I'm not interested I want to die", behavioral)
+        self.assertNotIn("I am busy but I do not feel safe", behavioral)
         self.assertGreaterEqual(len(medical), 25)
         self.assertGreaterEqual(len(behavioral), 25)
 
