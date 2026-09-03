@@ -1094,7 +1094,50 @@ def _handle_disconnect(batches_table, patients_table, connect, contact_id: str, 
     plan = _callback_plan(contact, campaign)
     if plan:
         callback_at = plan.get("callbackAt")
-        handled = _schedule_callback(patients_table, patient, plan, contact) if callback_at else _finalize_callback_without_schedule(patients_table, patient, plan, contact)
+        if not callback_at:
+            # Auto-schedule retry at original_call_start + 24 hours
+            timezone_name = str(campaign.get("timezone") or "UTC")
+            zone = _normalize_timezone(timezone_name)
+            init_ts = contact.get("InitiationTimestamp")
+            if isinstance(init_ts, dt.datetime):
+                start_dt = init_ts
+            elif isinstance(init_ts, (int, float)):
+                ts = float(init_ts)
+                if ts > 10_000_000_000:
+                    ts /= 1000.0
+                start_dt = dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc)
+            elif isinstance(init_ts, str) and init_ts.strip():
+                try:
+                    start_dt = dt.datetime.fromisoformat(init_ts.replace("Z", "+00:00"))
+                except ValueError:
+                    start_dt = _now_dt()
+            else:
+                telephony = _extract_telephony_details(contact)
+                start_str = telephony.get("callStartDateTime")
+                if start_str:
+                    try:
+                        start_dt = dt.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    except ValueError:
+                        start_dt = _now_dt()
+                else:
+                    start_dt = _now_dt()
+
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=dt.timezone.utc)
+
+            callback_at = start_dt.astimezone(zone) + dt.timedelta(hours=24)
+            plan["callbackAt"] = callback_at
+            plan["disposition"] = (
+                "Callback Requested - Auto-Rescheduled (24h)"
+                if plan.get("requestedBy") == "PATIENT"
+                else "Third Party - Callback Requested (Auto-Rescheduled 24h)"
+            )
+            if not plan.get("callbackReason"):
+                plan["callbackReason"] = "Auto-rescheduled (24h) — patient gave no specific time"
+
+        handled = _schedule_callback(patients_table, patient, plan, contact)
+        if not handled:
+            handled = _finalize_callback_without_schedule(patients_table, patient, plan, contact)
         if handled:
             _start_next_call(batches_table, patients_table, connect, patient["batchId"])
             return

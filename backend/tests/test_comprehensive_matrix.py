@@ -338,6 +338,52 @@ class ComprehensiveMatrixTests(unittest.TestCase):
         self.assertEqual(update_fail["ExpressionAttributeValues"][":reason"], "Connect rate limit reached")
         self.assertEqual(update_fail["ConditionExpression"], "#s=:inprogress")
 
+    def test_handle_disconnect_auto_reschedules_unspecified_callback_24h(self):
+        import datetime as dt
+        from zoneinfo import ZoneInfo
+        mock_batches = MagicMock()
+        mock_patients = MagicMock()
+        mock_connect = MagicMock()
+
+        call_start = dt.datetime(2026, 8, 24, 14, 30, 0, tzinfo=dt.timezone.utc)
+        patient = {
+            "patientId": "P-UNSPEC-24H",
+            "batchId": "B-AUTO",
+            "contactId": "c-unspec-24h",
+            "status": "IN_PROGRESS",
+            "callbackCount": 0,
+        }
+        contact = {
+            "ContactId": "c-unspec-24h",
+            "InitiationTimestamp": call_start,
+            "Attributes": {
+                "identityResult": "Confirmed",
+                "identityConfirmed": "true",
+                "conversationState": "CALLBACK",
+                "callbackWhen": "",
+            },
+        }
+        mock_connect.describe_contact.return_value = {"Contact": contact}
+
+        with patch.object(campaign_dialer, "_lookup_by_contact", return_value=patient):
+            with patch.object(campaign_dialer, "_campaign", return_value={"batchId": "B-AUTO", "timezone": "America/New_York", "status": "RUNNING"}):
+                with patch.object(campaign_dialer, "_create_callback_schedule", return_value=("sched-auto-24h", "2026-08-25T14:30:00Z")) as mock_sched:
+                    with patch.object(campaign_dialer, "_start_next_call"):
+                        campaign_dialer._handle_disconnect(mock_batches, mock_patients, mock_connect, "c-unspec-24h", "inst-123")
+
+                        mock_sched.assert_called_once()
+                        expected_cb = call_start.astimezone(ZoneInfo("America/New_York")) + dt.timedelta(hours=24)
+                        self.assertEqual(mock_sched.call_args[0][2], expected_cb)
+
+                        mock_patients.update_item.assert_called_once()
+                        update_vals = mock_patients.update_item.call_args[1]["ExpressionAttributeValues"]
+                        self.assertEqual(update_vals[":scheduled"], "CALLBACK_SCHEDULED")
+                        self.assertEqual(update_vals[":disposition"], "Callback Requested - Auto-Rescheduled (24h)")
+                        self.assertEqual(update_vals[":callbackAt"], expected_cb.isoformat())
+                        self.assertEqual(update_vals[":callbackFor"], "2026-08-25T14:30:00Z")
+                        self.assertEqual(update_vals[":scheduleName"], "sched-auto-24h")
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -294,6 +294,88 @@ class CampaignCallbackSchedulingTests(unittest.TestCase):
             self.assertFalse(dialer._mark_campaign_completed_if_done(table, table, 'c1'))
         self.assertEqual(table.calls, [])
 
+    def test_start_callback_call_places_outbound_contact_successfully(self):
+        class Connect:
+            def __init__(self): self.kw = None
+            def start_outbound_voice_contact(self, **kwargs):
+                self.kw = kwargs
+                return {"ContactId": "cb-contact-123"}
+
+        class FakePatientsTable:
+            def __init__(self, item):
+                self.item = item
+                self.calls = []
+            def get_item(self, Key):
+                return {"Item": self.item}
+            def update_item(self, **kwargs):
+                self.calls.append(kwargs)
+                return {}
+
+        class FakeBatchesTable:
+            def get_item(self, Key):
+                return {"Item": {"batchId": "camp-1", "status": "RUNNING", "timezone": "America/New_York"}}
+            def update_item(self, **kwargs):
+                return {}
+
+        patient = {
+            "patientId": "p1",
+            "batchId": "camp-1",
+            "phoneNumber": "+18148316822",
+            "customerName": "Kevin Peterson",
+            "firstName": "Kevin",
+            "lastName": "Peterson",
+            "status": "CALLBACK_SCHEDULED",
+            "practiceName": "Sample Practice",
+            "practiceCallbackNumber": "+15555550100",
+        }
+        patients_table = FakePatientsTable(patient)
+        batches_table = FakeBatchesTable()
+        connect = Connect()
+
+        with mock.patch.object(dialer, "_query_patients", return_value=[]):
+            dialer._start_callback_call(batches_table, patients_table, connect, "camp-1", "p1")
+
+        self.assertIsNotNone(connect.kw)
+        self.assertEqual(connect.kw["DestinationPhoneNumber"], "+18148316822")
+        self.assertEqual(connect.kw["Attributes"]["campaignId"], "camp-1")
+        self.assertEqual(connect.kw["Attributes"]["patientId"], "p1")
+        self.assertEqual(connect.kw["Attributes"]["customerName"], "Kevin Peterson")
+
+    def test_handler_patient_callback_event(self):
+        class Connect:
+            def __init__(self): self.kw = None
+            def start_outbound_voice_contact(self, **kwargs):
+                self.kw = kwargs
+                return {"ContactId": "cb-contact-456"}
+
+        patient = {
+            "patientId": "p1",
+            "batchId": "camp-1",
+            "phoneNumber": "+18148316822",
+            "customerName": "Kevin Peterson",
+            "firstName": "Kevin",
+            "lastName": "Peterson",
+            "status": "CALLBACK_SCHEDULED",
+            "practiceName": "Sample Practice",
+            "practiceCallbackNumber": "+15555550100",
+        }
+        mock_patients_table = mock.MagicMock()
+        mock_patients_table.get_item.return_value = {"Item": patient}
+        mock_batches_table = mock.MagicMock()
+        mock_batches_table.get_item.return_value = {"Item": {"batchId": "camp-1", "status": "RUNNING"}}
+
+        connect = Connect()
+
+        with mock.patch.object(dialer, "_batches_table", return_value=mock_batches_table), \
+             mock.patch.object(dialer, "_patients_table", return_value=mock_patients_table), \
+             mock.patch.object(dialer, "_query_patients", return_value=[]), \
+             mock.patch("boto3.client", return_value=connect):
+            resp = dialer.handler({"trigger": "patient-callback", "campaignId": "camp-1", "recordKey": "p1"}, None)
+
+        self.assertEqual(resp, {"handled": "patient-callback", "campaignId": "camp-1", "recordKey": "p1"})
+        self.assertIsNotNone(connect.kw)
+        self.assertEqual(connect.kw["DestinationPhoneNumber"], "+18148316822")
+
     def test_export_campaign_csv_all_records(self):
         campaign = {"campaignId": "camp-1", "fileName": "customers_2026_08_29.csv"}
         patients = [
@@ -422,6 +504,58 @@ class CampaignCallbackSchedulingTests(unittest.TestCase):
         update = table.calls[0]
         self.assertEqual(update["ExpressionAttributeValues"][":status"], "CALLBACK_UNSPECIFIED")
 
+    def test_handle_disconnect_auto_reschedules_unspecified_callback_24h(self):
+        import datetime as dt
+        from zoneinfo import ZoneInfo
+        batches_table = ConditionalTable()
+        patients_table = ConditionalTable()
+        patient = {
+            "patientId": "p-unspec-1",
+            "batchId": "camp-1",
+            "contactId": "c-unspec-1",
+            "status": "IN_PROGRESS",
+            "callbackCount": 0,
+        }
+        patients_table.items = [patient]
+
+        call_start = dt.datetime(2026, 8, 24, 14, 0, 0, tzinfo=dt.timezone.utc)
+        contact = {
+            "ContactId": "c-unspec-1",
+            "InitiationTimestamp": call_start,
+            "Attributes": {
+                "identityResult": "Confirmed",
+                "identityConfirmed": "true",
+                "conversationState": "CALLBACK",
+                "callbackWhen": "",
+                "callbackReason": "",
+            }
+        }
+        class Connect:
+            def describe_contact(self, **kwargs):
+                return {"Contact": contact}
+
+        with mock.patch.object(dialer, "_lookup_by_contact", return_value=patient):
+            with mock.patch.object(dialer, "_campaign", return_value={"batchId": "camp-1", "timezone": "America/New_York", "status": "RUNNING"}):
+                with mock.patch.object(dialer, "_create_callback_schedule", return_value=("sched-auto-24h", "2026-08-25T14:00:00Z")) as mock_sched:
+                    with mock.patch.object(dialer, "_start_next_call"):
+                        dialer._handle_disconnect(batches_table, patients_table, Connect(), "c-unspec-1", "inst-1")
+
+                        mock_sched.assert_called_once()
+                        args = mock_sched.call_args[0]
+                        self.assertEqual(args[0], "camp-1")
+                        self.assertEqual(args[1], "p-unspec-1")
+                        expected_cb = call_start.astimezone(ZoneInfo("America/New_York")) + dt.timedelta(hours=24)
+                        self.assertEqual(args[2], expected_cb)
+
+                        self.assertEqual(len(patients_table.calls), 1)
+                        update = patients_table.calls[0]
+                        vals = update["ExpressionAttributeValues"]
+                        self.assertEqual(vals[":scheduled"], "CALLBACK_SCHEDULED")
+                        self.assertEqual(vals[":disposition"], "Callback Requested - Auto-Rescheduled (24h)")
+                        self.assertEqual(vals[":callbackAt"], expected_cb.isoformat())
+                        self.assertEqual(vals[":callbackFor"], "2026-08-25T14:00:00Z")
+                        self.assertEqual(vals[":scheduleName"], "sched-auto-24h")
+
     def test_mark_setup_failed(self):
         table = ConditionalTable()
         patient = {"patientId": "p-3", "batchId": "b-1"}
@@ -435,4 +569,5 @@ class CampaignCallbackSchedulingTests(unittest.TestCase):
         from backend.utils.agent_availability import check_agent_availability
         with mock.patch("requests.get", side_effect=Exception("network down")):
             self.assertFalse(check_agent_availability())
+
 
