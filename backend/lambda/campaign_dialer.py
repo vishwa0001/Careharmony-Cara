@@ -249,8 +249,20 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
     )
 
-    first_name = str(patient.get("firstName") or "")
-    practice_name = str(patient.get("practiceName") or "")
+    first_name = str(patient.get("firstName") or "").strip()
+    practice_name = str(patient.get("practiceName") or "").strip()
+    if not practice_name:
+        raise ValueError("practiceName is required on patient record to place call")
+
+    resolved_first_name = (
+        first_name
+        or (customer_name.strip().split()[0] if customer_name.strip() else "")
+        or "the patient"
+    )
+    representative_transfer_message = (
+        f"Hi, {practice_name} has some important information to share regarding "
+        f"{resolved_first_name}'s care. Please hold while I connect you now."
+    )
 
     # Set opening greeting for Normal Cara Flow (permission asking)
     display_name = first_name or customer_name or "there"
@@ -280,6 +292,7 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         "agentUnavailablePrompt": "Is there a specific time that works best for you?",
         "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
         "representativeResponse": f"Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
+        "representativeTransferMessage": representative_transfer_message,
         "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
         "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
         "refusalResponse": "Understood — thanks for your time today. Goodbye.",

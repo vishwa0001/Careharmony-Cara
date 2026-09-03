@@ -1837,10 +1837,26 @@
       "Identifier": "e0000000-0000-4000-8000-000000000005",
       "Type": "UpdateContactAttributes",
       "Transitions": {
-        "NextAction": "e0000000-0000-4000-8000-000000000007",
+        "NextAction": "e0000000-0000-4000-8000-000000000008",
         "Errors": [
           {
-            "NextAction": "e0000000-0000-4000-8000-000000000007",
+            "NextAction": "e0000000-0000-4000-8000-000000000008",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "${RepresentativeTransferMessage}"
+      },
+      "Identifier": "e0000000-0000-4000-8000-000000000008",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000010",
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000010",
             "ErrorType": "NoMatchingError"
           }
         ]

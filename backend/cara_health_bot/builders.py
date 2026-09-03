@@ -2985,6 +2985,7 @@ def render_contact_flow(
         "${FallbackMessage}": cfg.cara_behavior["fallbackMessage"],
         "${HumanTransferQueueArn}": human_transfer_queue_arn,
         "${IdentitySuccessTransferMessage}": cfg.cara_behavior["transferMessage"],
+        "${RepresentativeTransferMessage}": "$.Attributes.representativeTransferMessage",
         "${CaraCallbackEndMessage}": cfg.cara_behavior["callbackResponses"]["endMessage"],
         "${CaraRespectfulClosingMessage}": cfg.cara_behavior["respectfulClosingMessage"],
         "${CaraSafetyMedicalResponse}": cfg.cara_behavior["safetyMedicalResponse"],

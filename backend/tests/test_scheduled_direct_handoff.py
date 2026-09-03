@@ -209,6 +209,7 @@ class TestScheduledDirectHandoff(unittest.TestCase):
             "phoneNumber": "+18145551111",
             "callMode": "NORMAL",
             "humanAgentPhoneNumber": "+18145551234",
+            "practiceName": "Cedar Clinic",
         }
         campaign_dialer._place_call(mock_table, mock_connect, patient_normal, "camp-1")
 
@@ -225,6 +226,7 @@ class TestScheduledDirectHandoff(unittest.TestCase):
             "phoneNumber": "+18145552222",
             "callMode": "DIRECT_HUMAN_HANDOFF",
             "humanAgentPhoneNumber": "+15822671755",
+            "practiceName": "Cedar Clinic",
         }
         campaign_dialer._place_call(mock_table, mock_connect, patient_direct, "camp-2")
 

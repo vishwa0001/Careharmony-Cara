@@ -24,6 +24,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Place one expected and consented Cara Health Bot outbound call.")
     p.add_argument("phone_number", help="Destination in E.164 format, e.g. +18145551212")
     p.add_argument("--customer-name", required=True, help="Expected customer name Cara must confirm before continuing")
+    p.add_argument("--practice-name", required=True, help="Referring practice name for this call (required)")
+    p.add_argument("--first-name", default=None, help="Patient first name (defaults to first token of customer-name)")
     p.add_argument("--i-confirm-consent", action="store_true", help="Required acknowledgment that the recipient expects and consents to the automated call")
     p.add_argument("--dry-run", action="store_true", help="Print the Connect API request without placing a call")
     return p.parse_args()
@@ -56,11 +58,28 @@ def redact(phone: str) -> str:
     return phone[:-4] + "XXXX"
 
 
-def render_behavior_text(template: str, *, customer_name: str, cfg) -> str:
+def render_behavior_text(
+    template: str,
+    *,
+    customer_name: str,
+    cfg,
+    first_name: str | None = None,
+    practice_name: str | None = None,
+) -> str:
+    resolved_first_name = (
+        (first_name or "").strip()
+        or (customer_name.strip().split()[0] if customer_name.strip() else "")
+        or "the patient"
+    )
+    resolved_practice_name = (practice_name or "").strip()
     return template.format(
         customer_name=customer_name,
+        customerName=customer_name,
+        first_name=resolved_first_name,
+        firstName=resolved_first_name,
+        practice_name=resolved_practice_name,
+        practiceName=resolved_practice_name,
         agent_name=str(cfg.cara_behavior.get("agentName") or "Cara"),
-        practice_name=str(cfg.cara_behavior.get("practiceName") or ""),
     )
 
 
@@ -78,6 +97,15 @@ def main() -> int:
         return 2
     try:
         customer_name = validate_customer_name(args.customer_name)
+        practice_name = (args.practice_name or "").strip()
+        if not practice_name:
+            print("Error: --practice-name is required and must be non-empty", file=sys.stderr)
+            return 2
+        resolved_first_name = (
+            (args.first_name or "").strip()
+            or (customer_name.strip().split()[0] if customer_name.strip() else "")
+            or "the patient"
+        )
         out = load_outputs()
         request = {
             "DestinationPhoneNumber": args.phone_number,
@@ -90,41 +118,87 @@ def main() -> int:
             "TrafficType": "GENERAL",
             "Attributes": {
                 "customerName": customer_name,
+                "firstName": resolved_first_name,
+                "practiceName": practice_name,
                 "expectedPhone": args.phone_number,
                 "identityPolicyVersion": "v6-cara-conversational",
                 "identityPrompt": f"Hi, may I speak with {customer_name}?",
                 "identityClarification": render_behavior_text(
-                    cfg.cara_behavior["preIdentityQuestionResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["preIdentityQuestionResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "identityFailureMessage": f"Thanks. I need to speak directly with {customer_name}, so I'll end the call here. Have a good day.",
                 "thirdPartyAvailabilityPrompt": render_behavior_text(
-                    cfg.cara_behavior["otherPersonResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["otherPersonResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "patientUnavailablePrompt": render_behavior_text(
-                    cfg.cara_behavior["patientUnavailableResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["patientUnavailableResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "agentUnavailablePrompt": render_behavior_text(
                     cfg.cara_behavior.get("agentUnavailableResponse", "Is there a specific time that works best for you?"),
                     customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
                     cfg=cfg,
                 ),
                 "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
                 "representativeResponse": render_behavior_text(
-                    cfg.cara_behavior["representativeResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["representativeResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
+                ),
+                "representativeTransferMessage": render_behavior_text(
+                    cfg.cara_behavior.get(
+                        "representativeTransferMessage",
+                        "Hi, {practice_name} has some important information to share regarding {first_name}'s care. Please hold while I connect you now.",
+                    ),
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "wrongNumberResponse": render_behavior_text(
-                    cfg.cara_behavior["wrongNumberResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["wrongNumberResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "deceasedResponse": render_behavior_text(
-                    cfg.cara_behavior["deceasedResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["deceasedResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "refusalResponse": render_behavior_text(
-                    cfg.cara_behavior["refusalResponse"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["refusalResponse"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
                 "passPhonePrompt": f"Thanks. Please pass the phone to {customer_name}.",
                 "handoffIdentityPrompt": f"Hi. May I confirm I'm speaking with {customer_name}?",
                 "coachingGreeting": render_behavior_text(
-                    cfg.cara_behavior["openingMessage"], customer_name=customer_name, cfg=cfg
+                    cfg.cara_behavior["openingMessage"],
+                    customer_name=customer_name,
+                    first_name=resolved_first_name,
+                    practice_name=practice_name,
+                    cfg=cfg,
                 ),
             },
         }

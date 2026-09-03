@@ -195,6 +195,7 @@ def validate_config(cfg: ProjectConfig) -> None:
     cara = cfg.cara_behavior
     required_cara_keys = {
         "agentName", "practiceName", "openingMessage", "transferMessage",
+        "representativeTransferMessage",
         "fallbackMessage", "preIdentityQuestionResponse", "questionResponses",
         "objectionResponses", "callbackResponses", "otherPersonResponse",
         "representativeResponse", "patientUnavailableResponse",

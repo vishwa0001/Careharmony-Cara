@@ -46,6 +46,7 @@
     "practiceName": "",
     "openingMessage": "Thanks, {customer_name}. I'm Cara, an automated assistant. I can connect you with a human specialist who can help. Is now a good time?",
     "transferMessage": "Thanks. I'll connect you with a human specialist now.",
+    "representativeTransferMessage": "Hi, {practice_name} has some important information to share regarding {first_name}'s care. Please hold while I connect you now.",
     "fallbackMessage": "I don't want to guess. A human specialist can answer that accurately if you'd like me to connect you.",
     "preIdentityQuestionResponse": "I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
     "questionResponses": {
