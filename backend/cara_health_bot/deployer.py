@@ -763,6 +763,22 @@ class CaraHealthBotDeployer:
             SourceArn=instance_arn,
         )
 
+        lex_statement_id = "CaraHealthBotLexInvoke"
+        try:
+            self.lambda_client.remove_permission(
+                FunctionName=function_name, StatementId=lex_statement_id
+            )
+        except ClientError as error:
+            if not self._is_error(error, "ResourceNotFoundException"):
+                raise
+        self.lambda_client.add_permission(
+            FunctionName=function_name,
+            StatementId=lex_statement_id,
+            Action="lambda:InvokeFunction",
+            Principal="lexv2.amazonaws.com",
+            SourceAccount=self.account_id,
+        )
+
         associated = self.connect.list_lambda_functions(InstanceId=instance_id).get(
             "LambdaFunctions", []
         )
@@ -1924,6 +1940,9 @@ class CaraHealthBotDeployer:
                 localeId=self.cfg.locale,
                 intentId=published_intent_id,
             )
+            post_spec = intent.get("fulfillmentCodeHook", {}).get("postFulfillmentStatusSpecification", {})
+            if "successResponse" in post_spec:
+                return False, None
             actual = (
                 intent.get("qInConnectIntentConfiguration", {})
                 .get("qInConnectAssistantConfiguration", {})
@@ -2296,9 +2315,14 @@ class CaraHealthBotDeployer:
                 )
             else:
                 version = self._build_and_version(bot_id, q_intent_id, assistant_arn)
-                published_ok, published_q_intent_id = self._published_version_is_correct(
-                    bot_id, version, assistant_arn
-                )
+                published_ok, published_q_intent_id = False, None
+                for _ in range(12):
+                    published_ok, published_q_intent_id = self._published_version_is_correct(
+                        bot_id, version, assistant_arn
+                    )
+                    if published_ok and published_q_intent_id:
+                        break
+                    time.sleep(5)
                 if not published_ok or not published_q_intent_id:
                     raise DeploymentError(
                         "The newly published Lex version failed the assistant/locale consistency check"
@@ -2308,7 +2332,14 @@ class CaraHealthBotDeployer:
         if not conversation_log_group:
             raise DeploymentError("Lex conversation log group was not initialized")
         conversation_log_group_arn = f"arn:aws:logs:{self.cfg.region}:{self.account_id}:log-group:{conversation_log_group}"
-        alias_request = lex_alias_request(self.cfg, bot_id, version, conversation_log_group_arn)
+        session_context_lambda_arn = self.state.resources.get("sessionContextLambdaArn")
+        alias_request = lex_alias_request(
+            self.cfg,
+            bot_id,
+            version,
+            conversation_log_group_arn,
+            lambda_code_hook_arn=session_context_lambda_arn,
+        )
         if alias:
             alias_id = alias["botAliasId"]
             current_alias = self.lex.describe_bot_alias(botId=bot_id, botAliasId=alias_id)

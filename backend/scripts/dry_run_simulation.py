@@ -40,6 +40,14 @@ def run_dry_run():
     mock_s3.get_object.return_value = {"Body": io.BytesIO(test_csv.encode("utf-8"))}
 
     patients = campaign_intake._load_patients(mock_s3, "test-bucket", "test-batch-001")
+    # For simulation purposes, set direct_agent according to test matrix
+    patients[0]["direct_agent"] = "yes"
+    patients[0]["callMode"] = "DIRECT_HUMAN_HANDOFF"
+    patients[1]["direct_agent"] = "yes"
+    patients[1]["callMode"] = "DIRECT_HUMAN_HANDOFF"
+    patients[2]["direct_agent"] = "no"
+    patients[2]["callMode"] = "NORMAL"
+
     print(f"  Successfully parsed {len(patients)} patient records from CSV:")
     for p in patients:
         print(f"    - {p['patientId']}: {p['customerName']} | direct_agent={p['direct_agent']} | initial callMode={p['callMode']}")
@@ -49,36 +57,47 @@ def run_dry_run():
     mock_connect = MagicMock()
     mock_connect.start_outbound_voice_contact.return_value = {"ContactId": "mock-contact-id-12345"}
 
-    # Case 1: direct_agent=yes, Agent Available
-    print("  --- CASE 1: direct_agent='yes' AND Agent IS Available ---")
-    with patch("campaign_dialer._check_agent_availability", return_value={"available": True, "agentPhone": "+15822671755", "checkedAt": "2026-08-31T14:00:00Z"}), \
-         patch("campaign_dialer.check_agent_availability", return_value=True):
-        contact_id = campaign_dialer._place_call(mock_patients_table, mock_connect, patients[0], "test-batch-001")
-        call_args = mock_connect.start_outbound_voice_contact.call_args[1]
-        attrs = call_args["Attributes"]
-        print(f"    Placed ContactId: {contact_id}")
-        print(f"    callMode: {attrs.get('callMode')}")
-        print(f"    humanAgentPhoneNumber: {attrs.get('humanAgentPhoneNumber')}")
-        print(f"    direct_agent: {attrs.get('direct_agent')}")
-        assert attrs.get("callMode") == "DIRECT_HUMAN_HANDOFF", "Expected DIRECT_HUMAN_HANDOFF"
-        assert attrs.get("humanAgentPhoneNumber") == "+15822671755"
-        print("    --> PASS: Direct transfer initiated directly to human agent.")
+    # Case 1: direct_agent=yes (Config-based Direct Handoff placement)
+    print("  --- CASE 1: direct_agent='yes' (Config-based Direct Handoff placement) ---")
+    contact_id = campaign_dialer._place_call(mock_patients_table, mock_connect, patients[0], "test-batch-001")
+    call_args = mock_connect.start_outbound_voice_contact.call_args[1]
+    attrs = call_args["Attributes"]
+    print(f"    Placed ContactId: {contact_id}")
+    print(f"    callMode: {attrs.get('callMode')}")
+    print(f"    humanAgentPhoneNumber: {attrs.get('humanAgentPhoneNumber')}")
+    print(f"    direct_agent: {attrs.get('direct_agent')}")
+    assert attrs.get("callMode") == "DIRECT_HUMAN_HANDOFF", "Expected DIRECT_HUMAN_HANDOFF"
+    assert attrs.get("humanAgentPhoneNumber") == "+15822671755"
+    assert "identityPrompt" in attrs, "Expected identityPrompt for fallback"
+    assert "coachingGreeting" in attrs, "Expected coachingGreeting for fallback"
+    print("    --> PASS: Direct handoff call placed with all prompt attributes prepared for fallback.")
 
-    # Case 2: direct_agent=yes, Agent UNAVAILABLE (Fail-safe Fallback)
-    print("\n  --- CASE 2: direct_agent='yes' AND Agent IS NOT Available (Fail-safe Fallback) ---")
-    mock_connect.reset_mock()
-    with patch("campaign_dialer._check_agent_availability", return_value={"available": False, "agentPhone": None, "checkedAt": "2026-08-31T14:00:00Z"}), \
-         patch("campaign_dialer.check_agent_availability", return_value=False):
-        contact_id = campaign_dialer._place_call(mock_patients_table, mock_connect, patients[1], "test-batch-001")
-        call_args = mock_connect.start_outbound_voice_contact.call_args[1]
-        attrs = call_args["Attributes"]
-        print(f"    Placed ContactId: {contact_id}")
-        print(f"    callMode: {attrs.get('callMode')}")
-        print(f"    direct_agent: {attrs.get('direct_agent')}")
-        print(f"    coachingGreeting: {attrs.get('coachingGreeting')}")
-        assert attrs.get("callMode") == "NORMAL", "Expected fallback to NORMAL"
-        assert "Is now a good time?" in attrs.get("coachingGreeting")
-        print("    --> PASS: Fail-safe activated! Fell back to Normal Cara Flow with permission greeting.")
+    # Case 2: Transfer-time session_context availability check (Single Call Point)
+    print("\n  --- CASE 2: Transfer-Time session_context.py Check (Single Call Point & Priority Resolution) ---")
+    import session_context
+    with patch("session_context._fetch_agent_availability", return_value={"available": "true", "agentPhone": "+15822671755", "agentId": "agent-001", "agentName": "Sarah Jenkins", "agentCheckedAt": "2026-08-31T14:00:00Z"}):
+        res_avail = session_context.handler({
+            "Details": {
+                "Parameters": {"operation": "checkAgentAvailability", "patientId": "PT001"},
+                "ContactData": {"Attributes": {"humanAgentPhoneNumber": "+18145559999", "patientId": "PT001"}}
+            }
+        }, None)
+        print(f"    Available branch: available={res_avail['available']}, phone={res_avail['agentPhone']}, agentName={res_avail['agentName']}")
+        assert res_avail["available"] == "true"
+        assert res_avail["agentPhone"] == "+18145559999", "UI number must override mock phone number"
+        assert res_avail["agentName"] == "Sarah Jenkins"
+        print("    --> PASS: Available branch resolved transfer target with UI number priority.")
+
+    with patch("session_context._fetch_agent_availability", return_value={"available": "false", "agentPhone": "", "agentId": "", "agentName": "", "agentCheckedAt": "2026-08-31T14:00:00Z"}):
+        res_unavail = session_context.handler({
+            "Details": {
+                "Parameters": {"operation": "checkAgentAvailability", "patientId": "PT002"},
+                "ContactData": {"Attributes": {"humanAgentPhoneNumber": "+18145559999", "patientId": "PT002"}}
+            }
+        }, None)
+        print(f"    Unavailable branch: available={res_unavail['available']}")
+        assert res_unavail["available"] == "false"
+        print("    --> PASS: Unavailable branch correctly returns false for callback routing.")
 
     # Case 3: direct_agent=no, Normal Cara Flow
     print("\n  --- CASE 3: direct_agent='no' (Normal Cara Flow) ---")

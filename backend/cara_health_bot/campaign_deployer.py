@@ -371,7 +371,7 @@ class CampaignDeployer:
             "agent_availability.handler",
             "agent_availability.py",
             self.api_role_arn,
-            {"FIXED_AGENT_PHONE": "+15822671755", "FORCE_AGENT_AVAILABLE": "true"},
+            {"FIXED_AGENT_PHONE": "+15822671755", "FORCE_AGENT_AVAILABLE": "false", "FORCE_AGENT_UNAVAILABLE": "true"},
             30,
         )
         try:

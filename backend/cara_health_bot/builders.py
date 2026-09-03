@@ -1032,6 +1032,56 @@ def wrong_number_intent_request(cfg: ProjectConfig, bot_id: str) -> dict[str, An
         "you may have misdialed",
         "I think you misdialed",
         "I think you have the wrong number",
+        "I think you got the wrong number",
+        "no I think you got the wrong number",
+        "no I think you have the wrong number",
+        "oh no I think you got the wrong number",
+        "oh no I think you have the wrong number",
+        "uh no I think you got the wrong number",
+        "uh no I think you have the wrong number",
+        "uh no you got the wrong number",
+        "uh no you have the wrong number",
+        "uh you got the wrong number",
+        "uh you have the wrong number",
+        "uh this is the wrong number",
+        "uh no this is the wrong number",
+        "uh no wrong number",
+        "um you got the wrong number",
+        "um you have the wrong number",
+        "um no you got the wrong number",
+        "um no you have the wrong number",
+        "um I think you got the wrong number",
+        "um I think you have the wrong number",
+        "um this is the wrong number",
+        "actually I think you got the wrong number",
+        "actually I think you have the wrong number",
+        "actually no you have the wrong number",
+        "actually no you got the wrong number",
+        "actually this is the wrong number",
+        "actually you have the wrong number",
+        "actually you got the wrong number",
+        "no wait you have the wrong number",
+        "no wait you got the wrong number",
+        "wait no you have the wrong number",
+        "wait no you got the wrong number",
+        "wait this is the wrong number",
+        "no I think you called the wrong number",
+        "oh no I think you called the wrong number",
+        "uh no I think you called the wrong number",
+        "no I think you dialed the wrong number",
+        "uh no I think you dialed the wrong number",
+        "oh no I think you dialed the wrong number",
+        "no I believe you have the wrong number",
+        "no I believe you got the wrong number",
+        "no I'm pretty sure you have the wrong number",
+        "no I'm pretty sure you got the wrong number",
+        "you must have the wrong number",
+        "you must have got the wrong number",
+        "you must have gotten the wrong number",
+        "no you must have the wrong number",
+        "no you must have gotten the wrong number",
+        "oh no this is the wrong number",
+        "oh no it's the wrong number",
         "I believe you have the wrong number",
         "I'm pretty sure this is the wrong number",
         "I'm sure you have the wrong number",
@@ -2316,15 +2366,7 @@ def availability_unavailable_intent_request(
             "{callbackDate} morning around {callbackTime}",
             "{callbackDate} afternoon at {callbackTime}",
             "{callbackDate} afternoon around {callbackTime}",
-            # Connect / reach / call prefix utterances
-            "you can connect with him {callbackDate} at {callbackTime}",
-            "you can connect with her {callbackDate} at {callbackTime}",
-            "you can connect with them {callbackDate} at {callbackTime}",
-            "you can connect with him {callbackDate} {callbackTime}",
-            "you can connect with her {callbackDate} {callbackTime}",
-            "you can connect with them {callbackDate} {callbackTime}",
-            "you can connect with him {callbackDate}",
-            "you can connect with him at {callbackTime}",
+            # Reach / call prefix utterances with explicit date/time
             "you can reach him {callbackDate} at {callbackTime}",
             "you can reach her {callbackDate} at {callbackTime}",
             "you can reach them {callbackDate} at {callbackTime}",
@@ -2341,18 +2383,12 @@ def availability_unavailable_intent_request(
             "you can call them {callbackDate} {callbackTime}",
             "you can call him {callbackDate}",
             "you can call him at {callbackTime}",
-            "connect with him {callbackDate} at {callbackTime}",
-            "connect with her {callbackDate} at {callbackTime}",
-            "connect with them {callbackDate} at {callbackTime}",
             "reach him {callbackDate} at {callbackTime}",
             "reach her {callbackDate} at {callbackTime}",
             "reach them {callbackDate} at {callbackTime}",
             "call him {callbackDate} at {callbackTime}",
             "call her {callbackDate} at {callbackTime}",
             "call them {callbackDate} at {callbackTime}",
-            "you can connect with him tomorrow morning at 10 am",
-            "you can connect with him tomorrow morning at 10:00 am",
-            "you can connect with him tomorrow morning at 10:00 a.m.",
             "you can reach him tomorrow morning at 10 am",
             "you can reach him tomorrow morning at 10:00 am",
             "you can reach him tomorrow morning at 10:00 a.m.",
@@ -2866,9 +2902,10 @@ def lex_locale_request(cfg: ProjectConfig, bot_id: str) -> dict[str, Any]:
         "localeId": cfg.locale,
         "description": "US English realtime Cara Health Bot conversation",
         "nluIntentConfidenceThreshold": 0.40,
-        "voiceSettings": {
-            "voiceId": cfg.voice_id,
-            "engine": "neural",
+        "unifiedSpeechSettings": {
+            "speechFoundationModel": {
+                "modelArn": f"arn:aws:bedrock:{cfg.region}::foundation-model/{cfg.speech_model_id}"
+            }
         },
     }
 
@@ -2882,16 +2919,6 @@ def lex_qinconnect_intent_request(cfg: ProjectConfig, bot_id: str, assistant_arn
             "enabled": False,
             "active": True,
             "postFulfillmentStatusSpecification": {
-                "successResponse": {
-                    "messageGroups": [
-                        {
-                            "message": {
-                                "plainTextMessage": {"value": "((x-amz-lex:q-in-connect-response))"}
-                            }
-                        }
-                    ],
-                    "allowInterrupt": True,
-                },
                 "successNextStep": {"dialogAction": {"type": "EndConversation"}},
                 "failureNextStep": {"dialogAction": {"type": "EndConversation"}},
                 "timeoutNextStep": {"dialogAction": {"type": "EndConversation"}},
@@ -2922,12 +2949,21 @@ def lex_alias_request(
     bot_id: str,
     bot_version: str,
     conversation_log_group_arn: str | None = None,
+    lambda_code_hook_arn: str | None = None,
 ) -> dict[str, Any]:
+    locale_settings: dict[str, Any] = {"enabled": True}
+    if lambda_code_hook_arn:
+        locale_settings["codeHookSpecification"] = {
+            "lambdaCodeHook": {
+                "lambdaARN": lambda_code_hook_arn,
+                "codeHookInterfaceVersion": "1.0",
+            }
+        }
     request: dict[str, Any] = {
         "botAliasName": cfg.bot_alias_name,
         "description": "Published Cara Health Bot alias used by Amazon Connect",
         "botVersion": bot_version,
-        "botAliasLocaleSettings": {cfg.locale: {"enabled": True}},
+        "botAliasLocaleSettings": {cfg.locale: locale_settings},
         "sentimentAnalysisSettings": {"detectSentiment": False},
         "botId": bot_id,
     }

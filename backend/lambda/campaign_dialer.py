@@ -190,7 +190,7 @@ def _check_agent_availability(patient_id: str = "", empi: str = "") -> dict:
     url = os.environ.get("AGENT_AVAILABILITY_URL", "")
     if not url:
         print("AGENT_AVAILABILITY_URL not set — treating as unavailable")
-        return {"available": False, "agentPhone": None, "checkedAt": None}
+        return {"available": False, "agentPhone": None, "agentId": None, "agentName": None, "checkedAt": None}
     try:
         import urllib.request
         import urllib.parse
@@ -207,7 +207,7 @@ def _check_agent_availability(patient_id: str = "", empi: str = "") -> dict:
             return json.loads(resp.read())
     except Exception as e:
         print(f"[WARN] Agent availability check failed: {e} — failing safe as unavailable")
-        return {"available": False, "agentPhone": None, "checkedAt": None}
+        return {"available": False, "agentPhone": None, "agentId": None, "agentName": None, "checkedAt": None}
 
 
 def _mark_agent_unavailable(patients_table, patient: dict, checked_at: str | None = None) -> None:
@@ -234,35 +234,19 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
     empi = str(patient.get("empi") or "")
     patient_id = str(patient.get("patientId") or empi)
 
-    agent_phone = None
-    agent_checked_at = None
-
-    # Direct agent routing
+    # Direct agent routing intent from config (pre-call availability check removed;
+    # actual availability is dynamically checked by session_context.py at transfer time)
     if direct_agent == "yes" or call_mode == "DIRECT_HUMAN_HANDOFF":
-        # DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
-        # Pre-call mock availability check is disabled during client testing; the configured
-        # humanAgentPhoneNumber is used directly for transfer without a pre-call check.
-        #
-        # availability = _check_agent_availability(patient_id=patient_id, empi=empi)
-        # agent_available = availability.get("available", False)
-        # if not agent_available:
-        #     agent_available = check_agent_availability({"patientId": patient_id, "empi": empi})
-        # if agent_available:
-        #     call_mode = "DIRECT_HUMAN_HANDOFF"
-        #     agent_phone = availability.get("agentPhone") or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
-        #     agent_checked_at = availability.get("checkedAt") or _now()
-        # else:
-        #     # Fail-safe: agent unavailable -> Normal Cara Flow
-        #     call_mode = "NORMAL"
-
         call_mode = "DIRECT_HUMAN_HANDOFF"
-        agent_checked_at = _now()
 
-    # Always resolve the campaign-level human agent phone number
+    # Priority resolution order:
+    # 1. UI-provided humanAgentPhoneNumber on patient
+    # 2. UI-provided humanAgentPhoneNumber on campaign
+    # 3. Environment fallback FIXED_HUMAN_AGENT_PHONE_NUMBER / FIXED_AGENT_PHONE
     agent_phone = str(
         patient.get("humanAgentPhoneNumber")
         or (campaign or {}).get("humanAgentPhoneNumber")
-        or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", "+15822671755")
+        or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
     )
 
     first_name = str(patient.get("firstName") or "")
@@ -275,47 +259,36 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         f"I can connect you with a human specialist who can help. Is now a good time?"
     )
 
-    if call_mode == "DIRECT_HUMAN_HANDOFF":
-        attributes = {
-            "customerName": customer_name,
-            "expectedPhone": patient["phoneNumber"],
-            "humanAgentPhoneNumber": agent_phone or "+15822671755",
-            "agentAvailabilityCheckedAt": agent_checked_at or "",
-            "callMode": "DIRECT_HUMAN_HANDOFF",
-            "direct_agent": direct_agent,
-            "firstName": first_name,
-            "practiceName": practice_name,
-        }
-    else:
-        attributes = {
-            "campaignId": campaign_id,
-            "patientId": patient["patientId"],
-            "customerName": customer_name,
-            "expectedPhone": patient["phoneNumber"],
-            "humanAgentPhoneNumber": agent_phone or "+15822671755",
-            "empi": str(patient.get("empi") or patient["patientId"]),
-            "firstName": first_name,
-            "lastName": str(patient.get("lastName") or ""),
-            "gender": str(patient.get("gender") or ""),
-            "practiceName": practice_name,
-            "practiceCallbackNumber": str(patient.get("practiceCallbackNumber") or ""),
-            "identityPolicyVersion": "v6-cara-conversational",
-            "identityPrompt": f"Hi, may I speak with {customer_name}?",
-            "identityClarification": f"I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
-            "identityFailureMessage": f"Thanks. I need to speak directly with {customer_name}, so I'll end the call here. Have a good day.",
-            "thirdPartyAvailabilityPrompt": f"Thanks. I need to speak directly with {customer_name}. Is {customer_name} available to come to the phone?",
-            "patientUnavailablePrompt": f"No problem. If you know a better day and time to reach {customer_name}, I can note it.",
-            "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
-            "representativeResponse": f"Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
-            "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
-            "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
-            "refusalResponse": "Understood — thanks for your time today. Goodbye.",
-            "passPhonePrompt": f"Thanks. Please pass the phone to {customer_name}.",
-            "handoffIdentityPrompt": f"Hi. May I confirm I'm speaking with {customer_name}?",
-            "coachingGreeting": coaching_greeting,
-            "callMode": "NORMAL",
-            "direct_agent": direct_agent,
-        }
+    attributes = {
+        "campaignId": campaign_id,
+        "patientId": patient["patientId"],
+        "customerName": customer_name,
+        "expectedPhone": patient["phoneNumber"],
+        "humanAgentPhoneNumber": agent_phone or "+15822671755",
+        "empi": str(patient.get("empi") or patient["patientId"]),
+        "firstName": first_name,
+        "lastName": str(patient.get("lastName") or ""),
+        "gender": str(patient.get("gender") or ""),
+        "practiceName": practice_name,
+        "practiceCallbackNumber": str(patient.get("practiceCallbackNumber") or ""),
+        "identityPolicyVersion": "v6-cara-conversational",
+        "identityPrompt": f"Hi, may I speak with {customer_name}?",
+        "identityClarification": f"I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
+        "identityFailureMessage": f"Thanks. I need to speak directly with {customer_name}, so I'll end the call here. Have a good day.",
+        "thirdPartyAvailabilityPrompt": f"Thanks. I need to speak directly with {customer_name}. Is {customer_name} available to come to the phone?",
+        "patientUnavailablePrompt": f"No problem. If you know a better day and time to reach {customer_name}, I can note it.",
+        "agentUnavailablePrompt": "Is there a specific time that works best for you?",
+        "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
+        "representativeResponse": f"Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
+        "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
+        "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
+        "refusalResponse": "Understood — thanks for your time today. Goodbye.",
+        "passPhonePrompt": f"Thanks. Please pass the phone to {customer_name}.",
+        "handoffIdentityPrompt": f"Hi. May I confirm I'm speaking with {customer_name}?",
+        "coachingGreeting": coaching_greeting,
+        "callMode": call_mode,
+        "direct_agent": direct_agent,
+    }
 
     connect_params = {
         "DestinationPhoneNumber": patient["phoneNumber"],
@@ -338,11 +311,28 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
     print(f"[DEBUG] start_outbound_voice_contact params: {json.dumps(connect_params, default=str)}")
     response = connect.start_outbound_voice_contact(**connect_params)
     contact_id = response["ContactId"]
-    _save_contact_id(patients_table, patient, contact_id, call_mode=call_mode, campaign_id=campaign_id)
+    _save_contact_id(
+        patients_table,
+        patient,
+        contact_id,
+        call_mode=call_mode,
+        campaign_id=campaign_id,
+        agent_phone=agent_phone,
+    )
     return contact_id
 
 
-def _save_contact_id(patients_table, patient: dict, contact_id: str, call_mode: str | None = None, campaign_id: str | None = None) -> None:
+def _save_contact_id(
+    patients_table,
+    patient: dict,
+    contact_id: str,
+    call_mode: str | None = None,
+    campaign_id: str | None = None,
+    agent_id: str | None = None,
+    agent_name: str | None = None,
+    agent_phone: str | None = None,
+    agent_checked_at: str | None = None,
+) -> None:
     if not patients_table:
         return
     batch_id = patient.get("batchId") or campaign_id
@@ -353,6 +343,18 @@ def _save_contact_id(patients_table, patient: dict, contact_id: str, call_mode: 
     if call_mode:
         update_expr += ", callMode=:callMode"
         vals[":callMode"] = call_mode
+    if agent_id:
+        update_expr += ", agentId=:agentId"
+        vals[":agentId"] = agent_id
+    if agent_name:
+        update_expr += ", agentName=:agentName"
+        vals[":agentName"] = agent_name
+    if agent_phone:
+        update_expr += ", humanAgentPhoneNumber=:agentPhone"
+        vals[":agentPhone"] = agent_phone
+    if agent_checked_at:
+        update_expr += ", agentCheckedAt=:agentCheckedAt"
+        vals[":agentCheckedAt"] = agent_checked_at
     patients_table.update_item(
         Key={"patientId": patient["patientId"], "batchId": batch_id},
         UpdateExpression=update_expr,

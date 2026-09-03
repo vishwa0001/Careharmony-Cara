@@ -122,9 +122,9 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         self.assertIn("I don't have time", raw)
         self.assertIn("No, it is not a good time right now. Can you call me tomorrow at 10 AM?", raw)
         self.assertIn("One clear affirmative answer is enough", raw)
-        self.assertIn("speak transferMessage exactly once", raw)
+        self.assertIn("Alongside this tool invocation, you MUST speak a brief confirmation inside <message>", raw)
         self.assertIn("Is now a good time to connect?", raw)
-        self.assertIn("Connect flow handles speaking any required closing or safety response", raw)
+        self.assertIn("speak a polite closing inside <message>", raw)
         self.assertIn("TRANSFER-FIRST GOAL", raw)
         self.assertIn("EscalateToHuman", raw)
         self.assertIn("RequestCallback", raw)
@@ -563,6 +563,71 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
             request["qInConnectIntentConfiguration"]["qInConnectAssistantConfiguration"]["assistantArn"],
             self.assistant_arn,
         )
+        self.assertNotIn("successResponse", request["fulfillmentCodeHook"]["postFulfillmentStatusSpecification"])
+
+    def test_lex_fulfillment_code_hook_handles_tool_returns(self):
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lambda"))
+        import session_context
+
+        # Test EscalateToHuman with empty q-in-connect response
+        event_escalate = {
+            "invocationSource": "FulfillmentCodeHook",
+            "sessionState": {
+                "sessionAttributes": {
+                    "Tool": "EscalateToHuman",
+                    "x-amz-lex:q-in-connect-response": "",
+                },
+                "intent": {"name": "AmazonQinConnect"},
+            },
+        }
+        res_esc = session_context.handler(event_escalate, None)
+        self.assertEqual(res_esc["sessionState"]["intent"]["state"], "Fulfilled")
+        self.assertEqual(res_esc["messages"][0]["content"], "I'll connect you with a specialist now.")
+        self.assertEqual(res_esc["sessionState"]["sessionAttributes"]["x-amz-lex:q-in-connect-response"], "I'll connect you with a specialist now.")
+
+        # Test RequestCallback with empty q-in-connect response
+        event_cb = {
+            "invocationSource": "FulfillmentCodeHook",
+            "sessionState": {
+                "sessionAttributes": {
+                    "Tool": "RequestCallback",
+                    "x-amz-lex:q-in-connect-response": "",
+                },
+                "intent": {"name": "AmazonQinConnect"},
+            },
+        }
+        res_cb = session_context.handler(event_cb, None)
+        self.assertEqual(res_cb["messages"][0]["content"], "I'll schedule a callback for you.")
+
+        # Test EndConversation with empty q-in-connect response
+        event_end = {
+            "invocationSource": "FulfillmentCodeHook",
+            "sessionState": {
+                "sessionAttributes": {
+                    "Tool": "EndConversation",
+                    "x-amz-lex:q-in-connect-response": "",
+                },
+                "intent": {"name": "AmazonQinConnect"},
+            },
+        }
+        res_end = session_context.handler(event_end, None)
+        self.assertEqual(res_end["messages"][0]["content"], "Understood. Thank you for your time, goodbye.")
+
+        # Test non-empty response preserved
+        event_normal = {
+            "invocationSource": "FulfillmentCodeHook",
+            "sessionState": {
+                "sessionAttributes": {
+                    "Tool": "",
+                    "x-amz-lex:q-in-connect-response": "I'm Cara, an automated assistant.",
+                },
+                "intent": {"name": "AmazonQinConnect"},
+            },
+        }
+        res_normal = session_context.handler(event_normal, None)
+        self.assertEqual(res_normal["messages"][0]["content"], "I'm Cara, an automated assistant.")
 
     def test_existing_human_agent_is_reused_without_password(self):
         deployer = object.__new__(CaraHealthBotDeployer)

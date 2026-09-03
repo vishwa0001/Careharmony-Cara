@@ -1178,6 +1178,8 @@
           "identityPolicyVersion": "v5-confidence-hardened-third-party",
           "recipientType": "THIRD_PARTY",
           "targetAvailableNow": "unknown",
+          "callbackTime": "unspecified",
+          "callbackWhen": "unspecified",
           "identityResult": "Denied"
         },
         "TargetContact": "Current"
@@ -1529,7 +1531,7 @@
       "Identifier": "b0000000-0000-4000-8000-000000000011",
       "Type": "Compare",
       "Transitions": {
-        "NextAction": "a0000000-0000-4000-8000-000000000011",
+        "NextAction": "b0000000-0000-4000-8000-000000000013",
         "Conditions": [
           {
             "NextAction": "b0000000-0000-4000-8000-000000000012",
@@ -1543,8 +1545,43 @@
         ],
         "Errors": [
           {
-            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "NextAction": "b0000000-0000-4000-8000-000000000013",
             "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Looks like our team is finishing up with a few others. Let me schedule you for a callback."
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000013",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b0000000-0000-4000-8000-000000000014",
+        "Errors": [
+          {
+            "NextAction": "b0000000-0000-4000-8000-000000000014",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "patientUnavailablePrompt": "$.Attributes.agentUnavailablePrompt"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "b0000000-0000-4000-8000-000000000014",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a0000000-0000-4000-8000-000000000011",
+        "Errors": [
+          {
+            "NextAction": "a0000000-0000-4000-8000-000000000011",
+            "ErrorType": "NoMatchingError"
           }
         ]
       }
@@ -1553,7 +1590,9 @@
       "Parameters": {
         "Attributes": {
           "humanAgentPhoneNumber": "$.External.agentPhone",
-          "agentAvailabilityCheckedAt": "$.External.agentCheckedAt"
+          "agentAvailabilityCheckedAt": "$.External.agentCheckedAt",
+          "agentId": "$.External.agentId",
+          "agentName": "$.External.agentName"
         },
         "TargetContact": "Current"
       },
@@ -2104,7 +2143,7 @@
         "NextAction": "10000000-0000-4000-8000-000000000001",
         "Conditions": [
           {
-            "NextAction": "e1000000-0000-4000-8000-000000000002",
+            "NextAction": "e1000000-0000-4000-8000-000000000010",
             "Condition": {
               "Operator": "Equals",
               "Operands": [
@@ -2117,6 +2156,100 @@
           {
             "NextAction": "10000000-0000-4000-8000-000000000001",
             "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "${SessionContextLambdaArn}",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "operation": "checkAgentAvailability",
+          "patientId": "$.Attributes.patientId",
+          "empi": "$.Attributes.empi"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000010",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000011",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000020",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.available"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000011",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000020",
+        "Conditions": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000012",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000020",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "humanAgentPhoneNumber": "$.External.agentPhone",
+          "agentAvailabilityCheckedAt": "$.External.agentCheckedAt",
+          "agentId": "$.External.agentId",
+          "agentName": "$.External.agentName"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000012",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "e1000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "e1000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "callMode": "NORMAL"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "e1000000-0000-4000-8000-000000000020",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000001",
+        "Errors": [
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
           }
         ]
       }

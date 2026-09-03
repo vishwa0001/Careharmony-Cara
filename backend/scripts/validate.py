@@ -136,11 +136,12 @@ def main() -> int:
         "QinConnect NoMatchingCondition must route to the Return-to-Control Tool router"
     )
     compares = [a for a in actions if a["Type"] == "Compare"]
-    assert len(compares) == 9
+    assert len(compares) == 10
     compare_values = [a["Parameters"]["ComparisonValue"] for a in compares]
     assert compare_values.count("$.Lex.SessionAttributes.Tool") == 1
     assert compare_values.count("$.Lex.SessionAttributes.endReason") == 1
     assert compare_values.count("$.External.identityMatch") == 4
+    assert compare_values.count("$.External.available") == 2
     assert compare_values.count("$.Attributes.callMode") == 1
     assert compare_values.count("$.Attributes.humanAgentPhoneNumber") == 1
 

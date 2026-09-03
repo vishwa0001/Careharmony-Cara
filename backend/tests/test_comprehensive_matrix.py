@@ -90,12 +90,12 @@ class ComprehensiveMatrixTests(unittest.TestCase):
         mock_connect.start_outbound_voice_contact.return_value = {"ContactId": "c-123"}
 
         test_matrix = [
-            # direct_agent, initial callMode, exp_call_mode, exp_greeting
-            ("yes", "DIRECT_HUMAN_HANDOFF", "DIRECT_HUMAN_HANDOFF", False),
-            ("no",  "NORMAL",               "NORMAL",               True),
+            # direct_agent, initial callMode, exp_call_mode
+            ("yes", "DIRECT_HUMAN_HANDOFF", "DIRECT_HUMAN_HANDOFF"),
+            ("no",  "NORMAL",               "NORMAL"),
         ]
 
-        for direct_val, init_mode, exp_mode, exp_greeting in test_matrix:
+        for direct_val, init_mode, exp_mode in test_matrix:
             with self.subTest(direct_agent=direct_val, init_mode=init_mode):
                 mock_connect.reset_mock()
                 patient = {
@@ -116,9 +116,125 @@ class ComprehensiveMatrixTests(unittest.TestCase):
                 self.assertEqual(attrs["direct_agent"], direct_val)
                 self.assertIn("humanAgentPhoneNumber", attrs)
                 self.assertEqual(attrs["humanAgentPhoneNumber"], "+15822671755")
-                if exp_greeting:
-                    self.assertIn("coachingGreeting", attrs)
-                    self.assertIn("Is now a good time?", attrs["coachingGreeting"])
+                self.assertIn("coachingGreeting", attrs)
+                self.assertIn("Is now a good time?", attrs["coachingGreeting"])
+                self.assertIn("identityPrompt", attrs)
+                self.assertIn("Alice Walker", attrs["identityPrompt"])
+
+    @patch("urllib.request.urlopen")
+    def test_session_context_transfer_time_availability_routing(self, mock_urlopen):
+        import session_context
+        # Case A: Available at transfer time
+        mock_resp_avail = MagicMock()
+        mock_resp_avail.read.return_value = json.dumps({
+            "available": True,
+            "agentPhone": "+15822671755",
+            "agentId": "agent-001",
+            "agentName": "Sarah Jenkins",
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp_avail.__enter__.return_value = mock_resp_avail
+        mock_urlopen.return_value = mock_resp_avail
+
+        event_avail = {
+            "Details": {
+                "Parameters": {
+                    "operation": "checkAgentAvailability",
+                    "patientId": "P-001",
+                },
+                "ContactData": {
+                    "Attributes": {
+                        "humanAgentPhoneNumber": "+18145559999",
+                    }
+                }
+            }
+        }
+        res_avail = session_context.handler(event_avail, None)
+        self.assertEqual(res_avail["available"], "true")
+        self.assertEqual(res_avail["agentPhone"], "+18145559999")
+        self.assertEqual(res_avail["agentName"], "Sarah Jenkins")
+
+        # Case B: Unavailable at transfer time -> routes to unavailable callback branch
+        mock_resp_unavail = MagicMock()
+        mock_resp_unavail.read.return_value = json.dumps({
+            "available": False,
+            "agentPhone": None,
+            "agentId": None,
+            "agentName": None,
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp_unavail.__enter__.return_value = mock_resp_unavail
+        mock_urlopen.return_value = mock_resp_unavail
+
+        event_unavail = {
+            "Details": {
+                "Parameters": {
+                    "operation": "checkAgentAvailability",
+                    "patientId": "P-002",
+                },
+                "ContactData": {
+                    "Attributes": {
+                        "humanAgentPhoneNumber": "+18145559999",
+                    }
+                }
+            }
+        }
+        res_unavail = session_context.handler(event_unavail, None)
+        self.assertEqual(res_unavail["available"], "false")
+
+    def test_agent_availability_lambda_payload_structure(self):
+        import agent_availability
+        # Available branch
+        event_avail = {"rawQueryString": "available=true"}
+        res_avail = agent_availability.handler(event_avail, None)
+        self.assertEqual(res_avail["statusCode"], 200)
+        body_avail = json.loads(res_avail["body"])
+        self.assertTrue(body_avail["available"])
+        self.assertEqual(body_avail["agentPhone"], "+15822671755")
+        self.assertEqual(body_avail["agentId"], "agent-001")
+        self.assertEqual(body_avail["agentName"], "Sarah Jenkins")
+        self.assertIn("checkedAt", body_avail)
+
+        # Unavailable branch
+        event_unavail = {"rawQueryString": "available=false"}
+        res_unavail = agent_availability.handler(event_unavail, None)
+        self.assertEqual(res_unavail["statusCode"], 200)
+        body_unavail = json.loads(res_unavail["body"])
+        self.assertFalse(body_unavail["available"])
+        self.assertIsNone(body_unavail["agentPhone"])
+        self.assertIsNone(body_unavail["agentId"])
+        self.assertIsNone(body_unavail["agentName"])
+        self.assertIn("checkedAt", body_unavail)
+
+    @patch("urllib.request.urlopen")
+    def test_session_context_fetch_agent_availability_structure(self, mock_urlopen):
+        from session_context import _fetch_agent_availability
+        # Available mock response
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "available": True,
+            "agentPhone": "+15822671755",
+            "agentId": "agent-001",
+            "agentName": "Sarah Jenkins",
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        result = _fetch_agent_availability("p1", "e1")
+        self.assertEqual(result["available"], "true")
+        self.assertEqual(result["agentPhone"], "+15822671755")
+        self.assertEqual(result["agentId"], "agent-001")
+        self.assertEqual(result["agentName"], "Sarah Jenkins")
+        self.assertEqual(result["agentCheckedAt"], "2026-09-02T12:00:00Z")
+
+        # Network failure fallback
+        mock_urlopen.side_effect = Exception("Connection refused")
+        fallback_result = _fetch_agent_availability("p2", "e2")
+        self.assertEqual(fallback_result["available"], "false")
+        self.assertEqual(fallback_result["agentId"], "")
+        self.assertEqual(fallback_result["agentName"], "")
+
 
     # -------------------------------------------------------------
     # 4. SESSION CONTEXT ATTRIBUTE FORWARDING

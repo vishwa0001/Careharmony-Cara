@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import sys
 import unittest
@@ -230,14 +231,128 @@ class TestScheduledDirectHandoff(unittest.TestCase):
         call_kwargs_direct = mock_connect.start_outbound_voice_contact.call_args[1]
         attrs_direct = call_kwargs_direct["Attributes"]
 
-        # Must contain required direct handoff attributes
+        # Must contain required direct handoff attributes set from config
         self.assertEqual(attrs_direct["customerName"], "Jane Smith")
         self.assertEqual(attrs_direct["expectedPhone"], "+18145552222")
         self.assertEqual(attrs_direct["humanAgentPhoneNumber"], "+15822671755")
         self.assertEqual(attrs_direct["callMode"], "DIRECT_HUMAN_HANDOFF")
-        self.assertNotIn("identityPrompt", attrs_direct)
-        self.assertNotIn("coachingGreeting", attrs_direct)
+        self.assertIn("identityPrompt", attrs_direct)
+        self.assertIn("coachingGreeting", attrs_direct)
+
+    @patch("urllib.request.urlopen")
+    def test_session_context_ui_number_priority_overrides_mock_agent_phone(self, mock_urlopen):
+        import session_context
+        # Mock returns a phone number different from the UI-provided number
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "available": True,
+            "agentPhone": "+15822671755",
+            "agentId": "agent-002",
+            "agentName": "Sarah Jenkins",
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        event = {
+            "Details": {
+                "Parameters": {
+                    "operation": "checkAgentAvailability",
+                    "patientId": "PT-300",
+                    "empi": "EMPI-300",
+                },
+                "ContactData": {
+                    "Attributes": {
+                        "humanAgentPhoneNumber": "+18145559999",  # UI-provided number
+                        "patientId": "PT-300",
+                    }
+                }
+            }
+        }
+
+        result = session_context.handler(event, None)
+
+        # UI-provided number MUST win over mock-returned number
+        self.assertEqual(result["available"], "true")
+        self.assertEqual(result["agentPhone"], "+18145559999")
+        self.assertNotEqual(result["agentPhone"], "+15822671755")
+        self.assertEqual(result["agentId"], "agent-002")
+        self.assertEqual(result["agentName"], "Sarah Jenkins")
+
+    @patch("urllib.request.urlopen")
+    def test_session_context_mock_agent_phone_fallback_when_ui_number_missing(self, mock_urlopen):
+        import session_context
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "available": True,
+            "agentPhone": "+15822671755",
+            "agentId": "agent-001",
+            "agentName": "Sarah Jenkins",
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        event = {
+            "Details": {
+                "Parameters": {
+                    "operation": "checkAgentAvailability",
+                    "patientId": "PT-400",
+                },
+                "ContactData": {
+                    "Attributes": {
+                        "humanAgentPhoneNumber": "",  # No UI number
+                        "patientId": "PT-400",
+                    }
+                }
+            }
+        }
+
+        result = session_context.handler(event, None)
+
+        # Falls back to mock API agentPhone
+        self.assertEqual(result["available"], "true")
+        self.assertEqual(result["agentPhone"], "+15822671755")
+        self.assertEqual(result["agentId"], "agent-001")
+        self.assertEqual(result["agentName"], "Sarah Jenkins")
+
+    @patch("urllib.request.urlopen")
+    def test_session_context_unavailable_branch(self, mock_urlopen):
+        import session_context
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "available": False,
+            "agentPhone": None,
+            "agentId": None,
+            "agentName": None,
+            "checkedAt": "2026-09-02T12:00:00Z",
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        event = {
+            "Details": {
+                "Parameters": {
+                    "operation": "checkAgentAvailability",
+                    "patientId": "PT-500",
+                },
+                "ContactData": {
+                    "Attributes": {
+                        "humanAgentPhoneNumber": "+18145559999",
+                        "patientId": "PT-500",
+                    }
+                }
+            }
+        }
+
+        result = session_context.handler(event, None)
+
+        # Returns available="false"
+        self.assertEqual(result["available"], "false")
+        self.assertEqual(result["agentId"], "")
+        self.assertEqual(result["agentName"], "")
 
 
 if __name__ == "__main__":
     unittest.main()
+

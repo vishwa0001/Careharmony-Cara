@@ -59,51 +59,98 @@ def _verify_identity_name(expected: str, first: str, last: str) -> str:
     )
 
 
-# DISABLED FOR CLIENT TESTING — see 2026-09-01 Option A static humanAgentPhoneNumber migration
-# Dynamic agent-availability API check is disabled for client testing in favor of campaign-level humanAgentPhoneNumber.
-# def _fetch_agent_availability(patient_id: str, empi: str) -> dict[str, str]:
-#     import os
-#     import json
-#     import urllib.request
-#     import urllib.parse
-#     import datetime as dt
-#
-#     now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-#     url = os.environ.get("AGENT_AVAILABILITY_URL", "https://uqyt6tgmp3dktodmkrkxqmn3f40wndqq.lambda-url.us-east-1.on.aws/")
-#     fixed_phone = os.environ.get("FIXED_AGENT_PHONE", "+15822671755")
-#
-#     try:
-#         target_url = url
-#         params = {}
-#         if patient_id:
-#             params["patientId"] = patient_id
-#         if empi:
-#             params["empi"] = empi
-#         if params:
-#             query = urllib.parse.urlencode(params)
-#             target_url = f"{url}?{query}" if "?" not in url else f"{url}&{query}"
-#         with urllib.request.urlopen(target_url, timeout=5) as resp:
-#             data = json.loads(resp.read().decode("utf-8"))
-#             available = bool(data.get("available"))
-#             agent_phone = str(data.get("agentPhone") or fixed_phone)
-#             checked_at = str(data.get("checkedAt") or now_iso)
-#             return {
-#                 "available": "true" if available else "false",
-#                 "agentPhone": agent_phone,
-#                 "agentCheckedAt": checked_at,
-#             }
-#     except Exception as e:
-#         print(f"[WARN] _fetch_agent_availability failed: {e}")
-#         return {
-#             "available": "false",
-#             "agentPhone": fixed_phone,
-#             "agentCheckedAt": now_iso,
-#         }
+def _fetch_agent_availability(patient_id: str, empi: str) -> dict[str, str]:
+    import os
+    import json
+    import urllib.request
+    import urllib.parse
+    import datetime as dt
+
+    now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    url = os.environ.get("AGENT_AVAILABILITY_URL", "https://w2adk4gg5z3rkcmwx3uczlne4y0ezfig.lambda-url.us-east-1.on.aws/")
+    fixed_phone = os.environ.get("FIXED_AGENT_PHONE", "+15822671755")
+
+    try:
+        target_url = url
+        params = {}
+        if patient_id:
+            params["patientId"] = patient_id
+        if empi:
+            params["empi"] = empi
+        if params:
+            query = urllib.parse.urlencode(params)
+            target_url = f"{url}?{query}" if "?" not in url else f"{url}&{query}"
+        with urllib.request.urlopen(target_url, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            available = bool(data.get("available"))
+            agent_phone = str(data.get("agentPhone") or fixed_phone)
+            agent_id = str(data.get("agentId") or "")
+            agent_name = str(data.get("agentName") or "")
+            checked_at = str(data.get("checkedAt") or now_iso)
+            return {
+                "available": "true" if available else "false",
+                "agentPhone": agent_phone,
+                "agentId": agent_id,
+                "agentName": agent_name,
+                "agentCheckedAt": checked_at,
+            }
+    except Exception as e:
+        print(f"[WARN] _fetch_agent_availability failed: {e}")
+        return {
+            "available": "false",
+            "agentPhone": fixed_phone,
+            "agentId": "",
+            "agentName": "",
+            "agentCheckedAt": now_iso,
+        }
 
 
-def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
+
+def _handle_lex_fulfillment(event: dict[str, Any]) -> dict[str, Any]:
+    session_state = event.get("sessionState") or {}
+    session_attrs = session_state.get("sessionAttributes") or {}
+    q_response = (session_attrs.get("x-amz-lex:q-in-connect-response") or "").strip()
+    tool = (session_attrs.get("Tool") or "").strip()
+
+    if not q_response:
+        if tool == "EscalateToHuman":
+            q_response = "I'll connect you with a specialist now."
+        elif tool == "RequestCallback":
+            q_response = "I'll schedule a callback for you."
+        elif tool == "EndConversation":
+            q_response = "Understood. Thank you for your time, goodbye."
+        else:
+            q_response = "I'm here to help."
+        session_attrs["x-amz-lex:q-in-connect-response"] = q_response
+
+    intent_obj = session_state.get("intent") or {}
+    intent_name = intent_obj.get("name") or "AmazonQinConnect"
+
+    return {
+        "sessionState": {
+            "dialogAction": {"type": "Close"},
+            "intent": {
+                "name": intent_name,
+                "state": "Fulfilled",
+            },
+            "sessionAttributes": session_attrs,
+        },
+        "messages": [
+            {
+                "contentType": "PlainText",
+                "content": q_response,
+            }
+        ],
+    }
+
+
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     import os
     import datetime as dt
+
+    # Handle Lex V2 fulfillment code hook invocations
+    if event.get("invocationSource") == "FulfillmentCodeHook" or ("sessionState" in event and "Details" not in event):
+        return _handle_lex_fulfillment(event)
 
     # Do not log the incoming event because it contains customer-specific data.
     details = event.get("Details") or {}
@@ -113,22 +160,37 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, str]:
     operation = str(params.get("operation") or "initialize").strip()
 
     if operation == "checkAgentAvailability":
-        # Option A: Use the static campaign-level human agent phone number as the sole transfer target.
         patient_id = _optional(params, "patientId") or _optional(attributes, "patientId")
         empi = _optional(params, "empi") or _optional(attributes, "empi")
-        configured_agent_phone = (
+
+        # 1. Fetch fresh live availability from mock API at transfer time
+        avail_data = _fetch_agent_availability(patient_id=patient_id, empi=empi)
+        is_available = avail_data.get("available") == "true"
+
+        # 2. Priority resolution order:
+        # UI/campaign-configured humanAgentPhoneNumber > API agentPhone > FIXED_AGENT_PHONE default
+        configured_ui_phone = (
             _optional(params, "humanAgentPhoneNumber")
             or _optional(attributes, "humanAgentPhoneNumber")
             or _optional(params, "agentPhone")
             or _optional(attributes, "agentPhone")
+        )
+        resolved_phone = (
+            configured_ui_phone
+            or avail_data.get("agentPhone")
             or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
         )
-        now_iso = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        print(f"[session_context] [INFO] Option A mid-call transfer target resolved: patientId={patient_id} empi={empi} agentPhone={configured_agent_phone}")
+        agent_id = avail_data.get("agentId") or ""
+        agent_name = avail_data.get("agentName") or ""
+        checked_at = avail_data.get("agentCheckedAt") or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        print(f"[session_context] [INFO] Transfer-time agent availability check: patientId={patient_id} empi={empi} available={is_available} resolvedPhone={resolved_phone} agentId={agent_id} agentName={agent_name}")
         return {
-            "available": "true",
-            "agentPhone": configured_agent_phone,
-            "agentCheckedAt": now_iso,
+            "available": "true" if is_available else "false",
+            "agentPhone": resolved_phone,
+            "agentId": agent_id,
+            "agentName": agent_name,
+            "agentCheckedAt": checked_at,
         }
 
     if operation == "verifyIdentityName":

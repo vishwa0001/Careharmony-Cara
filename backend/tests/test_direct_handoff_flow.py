@@ -58,14 +58,73 @@ class DirectHandoffFlowTests(unittest.TestCase):
         self.assertEqual(callmode_block["Type"], "Compare")
         self.assertEqual(callmode_block["Parameters"]["ComparisonValue"], "$.Attributes.callMode")
 
-        # Verify DIRECT_HUMAN_HANDOFF condition
+        # Verify DIRECT_HUMAN_HANDOFF condition routes to in-flow availability check
         conditions = callmode_block["Transitions"]["Conditions"]
         handoff_cond = next((c for c in conditions if c["Condition"]["Operands"] == ["DIRECT_HUMAN_HANDOFF"]), None)
         self.assertIsNotNone(handoff_cond)
-        self.assertEqual(handoff_cond["NextAction"], "e1000000-0000-4000-8000-000000000002")
+        self.assertEqual(handoff_cond["NextAction"], "e1000000-0000-4000-8000-000000000010")
 
         # Verify Default / Missing transition points to original Identity Lex Bot
         self.assertEqual(callmode_block["Transitions"]["NextAction"], "10000000-0000-4000-8000-000000000001")
+
+    def test_direct_call_availability_check_and_fallback_routing(self):
+        data = json.loads(self.flow_path.read_text(encoding="utf-8"))
+        actions = {a["Identifier"]: a for a in data["Actions"]}
+
+        # 1. Availability check Lambda invocation node
+        lambda_node = actions.get("e1000000-0000-4000-8000-000000000010")
+        self.assertIsNotNone(lambda_node)
+        self.assertEqual(lambda_node["Type"], "InvokeLambdaFunction")
+        self.assertEqual(lambda_node["Parameters"]["LambdaInvocationAttributes"]["operation"], "checkAgentAvailability")
+        self.assertEqual(lambda_node["Transitions"]["NextAction"], "e1000000-0000-4000-8000-000000000011")
+        error_trans = next((e for e in lambda_node["Transitions"]["Errors"] if e["ErrorType"] == "NoMatchingError"), None)
+        self.assertIsNotNone(error_trans)
+        self.assertEqual(error_trans["NextAction"], "e1000000-0000-4000-8000-000000000020")
+
+        # 2. Availability Compare node
+        compare_node = actions.get("e1000000-0000-4000-8000-000000000011")
+        self.assertIsNotNone(compare_node)
+        self.assertEqual(compare_node["Type"], "Compare")
+        self.assertEqual(compare_node["Parameters"]["ComparisonValue"], "$.External.available")
+        true_cond = next((c for c in compare_node["Transitions"]["Conditions"] if c["Condition"]["Operands"] == ["true"]), None)
+        self.assertIsNotNone(true_cond)
+        self.assertEqual(true_cond["NextAction"], "e1000000-0000-4000-8000-000000000012")
+        self.assertEqual(compare_node["Transitions"]["NextAction"], "e1000000-0000-4000-8000-000000000020")
+
+        # 3. Available=true Attribute Update node (routes to phone check & transfer)
+        avail_update = actions.get("e1000000-0000-4000-8000-000000000012")
+        self.assertIsNotNone(avail_update)
+        self.assertEqual(avail_update["Type"], "UpdateContactAttributes")
+        self.assertEqual(avail_update["Parameters"]["Attributes"]["humanAgentPhoneNumber"], "$.External.agentPhone")
+        self.assertEqual(avail_update["Transitions"]["NextAction"], "e1000000-0000-4000-8000-000000000002")
+
+        # 4. Available=false Fallback node (resets callMode to NORMAL and routes to Normal Cara Lex Bot)
+        fallback_update = actions.get("e1000000-0000-4000-8000-000000000020")
+        self.assertIsNotNone(fallback_update)
+        self.assertEqual(fallback_update["Type"], "UpdateContactAttributes")
+        self.assertEqual(fallback_update["Parameters"]["Attributes"]["callMode"], "NORMAL")
+        self.assertEqual(fallback_update["Transitions"]["NextAction"], "10000000-0000-4000-8000-000000000001")
+
+    def test_mid_call_escalate_path_remains_isolated_and_untouched(self):
+        data = json.loads(self.flow_path.read_text(encoding="utf-8"))
+        actions = {a["Identifier"]: a for a in data["Actions"]}
+
+        # Mid-call checkAgentAvailability node
+        mid_lambda = actions.get("b0000000-0000-4000-8000-000000000010")
+        self.assertIsNotNone(mid_lambda)
+        self.assertEqual(mid_lambda["Transitions"]["NextAction"], "b0000000-0000-4000-8000-000000000011")
+
+        # Mid-call Compare node
+        mid_compare = actions.get("b0000000-0000-4000-8000-000000000011")
+        self.assertIsNotNone(mid_compare)
+        # Mid-call false branch still routes to callback announcement and scheduling
+        self.assertEqual(mid_compare["Transitions"]["NextAction"], "b0000000-0000-4000-8000-000000000013")
+        mid_prompt = actions.get("b0000000-0000-4000-8000-000000000013")
+        self.assertIsNotNone(mid_prompt)
+        self.assertEqual(mid_prompt["Transitions"]["NextAction"], "b0000000-0000-4000-8000-000000000014")
+        mid_attr = actions.get("b0000000-0000-4000-8000-000000000014")
+        self.assertIsNotNone(mid_attr)
+        self.assertEqual(mid_attr["Transitions"]["NextAction"], "a0000000-0000-4000-8000-000000000011")
 
     def test_agent_phone_safeguard_compare_block(self):
         data = json.loads(self.flow_path.read_text(encoding="utf-8"))

@@ -103,6 +103,11 @@ def main() -> int:
                 "patientUnavailablePrompt": render_behavior_text(
                     cfg.cara_behavior["patientUnavailableResponse"], customer_name=customer_name, cfg=cfg
                 ),
+                "agentUnavailablePrompt": render_behavior_text(
+                    cfg.cara_behavior.get("agentUnavailableResponse", "Is there a specific time that works best for you?"),
+                    customer_name=customer_name,
+                    cfg=cfg,
+                ),
                 "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
                 "representativeResponse": render_behavior_text(
                     cfg.cara_behavior["representativeResponse"], customer_name=customer_name, cfg=cfg
