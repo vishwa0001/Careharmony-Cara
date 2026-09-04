@@ -98,5 +98,15 @@ Fix:
 
 `scripts/validate.py` fails today with `assert len(compares) == 8` (around line 139), independent of the two fixes above — confirmed with `git stash` that this fails on a clean checkout of this branch too, before any of that work. The flow currently has 9 `Compare` actions; a new one (the `checkAgentAvailability` check feeding the human-agent transfer) was added without updating this hardcoded count. Worth fixing so this script can be trusted as a pre-deploy check again.
 
+Update: resolved upstream — the compares count is now correctly asserted at 10.
+
+## Agent didn't answer within the ring window -- Cara resumes instead of the call just ending
+
+When a human agent is available and Cara transfers the call, the existing transfer step ended the call either way, answered or not -- if the agent didn't pick up, the patient was just left with a dead connection instead of Cara actually resuming.
+
+Fix: added a Mode-A-only copy of the transfer step (`f2000000-...001` through `...004` in `cara-health-bot-flow.json`) with a 25-second ring limit and `ContinueFlowExecution: "True"`. If the agent doesn't answer in time (`ConnectionTimeLimitExceeded`) or the call fails to connect (`CallFailed`), the flow overwrites `coachingGreeting` with a new `agentNoAnswerPitch` attribute and re-enters Cara's same ongoing conversation (`55555555-...`) instead of a fresh one. From there her existing callback handling takes over unchanged -- a specific time gets scheduled for real, no time given logs as unspecified, same as any other callback today.
+
+Deliberately built as a separate copy rather than modifying the existing shared transfer step, since that step is also used by the Mode B direct-handoff path -- this keeps Mode B's behavior completely untouched.
+
 
 

@@ -278,6 +278,16 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         "thirdPartyAvailabilityPrompt": f"Thanks. I need to speak directly with {customer_name}. Is {customer_name} available to come to the phone?",
         "patientUnavailablePrompt": f"No problem. If you know a better day and time to reach {customer_name}, I can note it.",
         "agentUnavailablePrompt": "Is there a specific time that works best for you?",
+        # Spoken by Cara if the agent didn't pick up within the ring window
+        # (see f2000000-...004 in the contact flow) -- she resumes the same
+        # conversation instead of the call just ending with no one reached.
+        "agentNoAnswerPitch": (
+            f"Looks like our team is finishing up with a few others right now. The reason "
+            f"for the call is that {practice_name or 'we'} gives their patients access to a "
+            f"dedicated nurse — any time you have a medical question, need a referral, or "
+            f"want to schedule something, there's a twenty-four-hour line where you can reach "
+            f"your nurse directly. Is there a better time for us to try connecting you?"
+        ),
         "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
         "representativeResponse": f"Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
         "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",

@@ -1,3 +1,6 @@
 boto3>=1.43.18,<2
 botocore>=1.43.18,<2
 PyYAML>=6,<7
+# Used by utils/agent_availability.py -- not on the real campaign_dialer.py
+# code path (which uses urllib instead), but tests/scripts import it directly.
+requests>=2.32,<3

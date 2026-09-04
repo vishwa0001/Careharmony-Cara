@@ -108,6 +108,18 @@ def main() -> int:
                     customer_name=customer_name,
                     cfg=cfg,
                 ),
+                # Cara's opening line if she comes back after the agent didn't
+                # pick up within the ring window (see contact flow node
+                # f2000000-...004) instead of the call just ending unreached.
+                "agentNoAnswerPitch": render_behavior_text(
+                    cfg.cara_behavior.get(
+                        "agentNoAnswerPitch",
+                        "Looks like our team is finishing up with a few others right now. "
+                        "Is there a better time for us to try connecting you?",
+                    ),
+                    customer_name=customer_name,
+                    cfg=cfg,
+                ),
                 "thirdPartyAvailabilityClarification": f"Just to clarify, is {customer_name} available to come to the phone now?",
                 "representativeResponse": render_behavior_text(
                     cfg.cara_behavior["representativeResponse"], customer_name=customer_name, cfg=cfg

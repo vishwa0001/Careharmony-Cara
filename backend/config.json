@@ -126,6 +126,7 @@
     "representativeResponse": "Thanks for letting me know. I can only continue directly with {customer_name}. Is {customer_name} available to come to the phone?",
     "patientUnavailableResponse": "No problem. If you know a better day and time to reach {customer_name}, I can note it.",
     "agentUnavailableResponse": "Is there a specific time that works best for you?",
+    "agentNoAnswerPitch": "Looks like our team is finishing up with a few others right now. The reason for the call is that {practice_name} gives their patients access to a dedicated nurse — any time you have a medical question, need a referral, or want to schedule something, there's a twenty-four-hour line where you can reach your nurse directly. Is there a better time for us to try connecting you?",
     "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
     "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
     "refusalResponse": "Understood. I won't continue this call. Thank you for your time.",

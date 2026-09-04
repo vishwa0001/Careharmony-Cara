@@ -57,6 +57,7 @@ def handler(event, context):
                 "available": available,
                 "agentPhone": agent_phone if available else None,
                 "agentId": "agent-001" if available else None,
+                "agentName": "Sarah Jenkins" if available else None,
                 "checkedAt": datetime.datetime.utcnow().isoformat() + "Z",
             }
         ),

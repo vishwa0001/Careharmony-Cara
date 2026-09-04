@@ -576,7 +576,11 @@ def main() -> int:
     assert "logs:PutLogEvents" in json.dumps(identity_lex_runtime_permissions(cfg.region, account, lex_log_group))
 
     rendered = render_contact_flow(cfg, assistant_id, assistant_arn, alias_arn, identity_alias_arn, availability_alias_arn, lambda_arn, f"arn:aws:connect:{cfg.region}:{account}:instance/{instance_id}/queue/ffffffff-1111-2222-3333-444444444444")
-    text = json.dumps(json.loads(rendered))
+    # ensure_ascii=False: config text can contain non-ASCII characters (e.g. an
+    # em-dash in safetyBehavioralResponse). Without this, json.dumps escapes
+    # them to \uXXXX, so a literal substring check below would false-fail even
+    # though the escaped and literal forms are equivalent JSON/spoken text.
+    text = json.dumps(json.loads(rendered), ensure_ascii=False)
     assert assistant_arn in text and alias_arn in text and identity_alias_arn in text and availability_alias_arn in text and lambda_arn in text
     assert "ffffffff-1111-2222-3333-444444444444" in text
     assert cfg.cara_behavior["transferMessage"] in text

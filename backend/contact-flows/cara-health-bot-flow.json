@@ -1599,10 +1599,91 @@
       "Identifier": "b0000000-0000-4000-8000-000000000012",
       "Type": "UpdateContactAttributes",
       "Transitions": {
-        "NextAction": "e1000000-0000-4000-8000-000000000003",
+        "NextAction": "f2000000-0000-4000-8000-000000000001",
         "Errors": [
           {
-            "NextAction": "e1000000-0000-4000-8000-000000000003",
+            "NextAction": "f2000000-0000-4000-8000-000000000001",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Please hold while I connect your call to a human representative."
+      },
+      "Identifier": "f2000000-0000-4000-8000-000000000001",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "f2000000-0000-4000-8000-000000000002",
+        "Errors": [
+          {
+            "NextAction": "f2000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "CallerIdNumber": "$.SystemEndpoint.Address"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "f2000000-0000-4000-8000-000000000002",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "f2000000-0000-4000-8000-000000000003",
+        "Errors": [
+          {
+            "NextAction": "f2000000-0000-4000-8000-000000000003",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ThirdPartyPhoneNumber": "$.Attributes.humanAgentPhoneNumber",
+        "ThirdPartyConnectionTimeLimitSeconds": "15",
+        "ContinueFlowExecution": "True"
+      },
+      "Identifier": "f2000000-0000-4000-8000-000000000003",
+      "Type": "TransferParticipantToThirdParty",
+      "Transitions": {
+        "NextAction": "77777777-7777-4777-8777-777777777777",
+        "Errors": [
+          {
+            "NextAction": "f2000000-0000-4000-8000-000000000004",
+            "ErrorType": "ConnectionTimeLimitExceeded"
+          },
+          {
+            "NextAction": "f2000000-0000-4000-8000-000000000004",
+            "ErrorType": "CallFailed"
+          },
+          {
+            "NextAction": "f2000000-0000-4000-8000-000000000004",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "coachingGreeting": "$.Attributes.agentNoAnswerPitch",
+          "conversationState": "AGENT_UNAVAILABLE_RESCHEDULE"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "f2000000-0000-4000-8000-000000000004",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "55555555-5555-4555-8555-555555555555",
+        "Errors": [
+          {
+            "NextAction": "55555555-5555-4555-8555-555555555555",
             "ErrorType": "NoMatchingError"
           }
         ]
