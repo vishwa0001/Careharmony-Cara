@@ -49,6 +49,7 @@
     "representativeTransferMessage": "Hi, {practice_name} has some important information to share regarding {first_name}'s care. Please hold while I connect you now.",
     "fallbackMessage": "I don't want to guess. A human specialist can answer that accurately if you'd like me to connect you.",
     "preIdentityQuestionResponse": "I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
+    "identityDoubleCheckPrompt": "Just to double check, is this {first_name}?",
     "questionResponses": {
       "reason_for_call": {
         "short": "<CONFIGURE_APPROVED_REASON_FOR_CALL_SHORT>",
@@ -104,7 +105,7 @@
     "patientUnavailableResponse": "No problem. If you know a better day and time to reach {customer_name}, I can note it.",
     "agentUnavailableResponse": "Is there a specific time that works best for you?",
     "wrongNumberResponse": "Thanks for letting me know. I apologize for the inconvenience. Have a good day.",
-    "deceasedResponse": "I'm so sorry for your loss. Thank you for letting me know.",
+    "deceasedResponse": "I’m so sorry to hear that — please accept my condolences. I’ll make sure our records reflect this. Take care, and goodbye.",
     "refusalResponse": "Understood. I won't continue this call. Thank you for your time.",
     "respectfulClosingMessage": "Understood. Thank you for your time. Have a good day.",
     "safetyMedicalResponse": "This could need urgent medical attention. I can't assess symptoms or provide medical advice. Please contact local emergency services or seek immediate help from a qualified medical professional now. I'm going to end this call so you can focus on getting help.",

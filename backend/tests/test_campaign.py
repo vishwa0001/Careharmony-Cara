@@ -69,6 +69,15 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(patients[0]["patientId"], "P1")
         self.assertEqual(patients[0]["customerName"], "John Doe")
         self.assertEqual(patients[0]["practiceName"], "North Clinic")
+        self.assertEqual(patients[0]["providerName"], "")
+
+    def test_valid_campaign_csv_with_provider(self):
+        csv_data = b"empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,provider_name\nP1,John,Doe,M,+18148316822,North Clinic,+18145550100,Dr. Gregory House\n"
+        patients = intake._load_patients(FakeS3({"campaigns/c1/patients.csv": csv_data}), "bucket", "c1")
+        self.assertEqual(patients[0]["patientId"], "P1")
+        self.assertEqual(patients[0]["customerName"], "John Doe")
+        self.assertEqual(patients[0]["practiceName"], "North Clinic")
+        self.assertEqual(patients[0]["providerName"], "Dr. Gregory House")
 
     def test_empty_campaign_rejected(self):
         csv_data = b"empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number\n"
@@ -88,11 +97,23 @@ class CampaignTests(unittest.TestCase):
         class Connect:
             def __init__(self): self.kw=None
             def start_outbound_voice_contact(self, **kwargs): self.kw=kwargs; return {"ContactId":"contact-1"}
-        c=Connect(); patient={"patientId":"p1","empi":"p1","phoneNumber":"+18148316822","customerName":"John","firstName":"John","lastName":"Doe","practiceName":"North Clinic","practiceCallbackNumber":"+18145550100"}
+        c=Connect(); patient={"patientId":"p1","empi":"p1","phoneNumber":"+18148316822","customerName":"John Doe","firstName":"John","lastName":"Doe","practiceName":"North Clinic","practiceCallbackNumber":"+18145550100"}
         self.assertEqual(dialer._place_call(None, c, patient, "c1"), "contact-1")
         self.assertEqual(c.kw["ContactFlowId"], "flow-1")
         self.assertEqual(c.kw["Attributes"]["campaignId"], "c1")
         self.assertEqual(c.kw["Attributes"]["patientId"], "p1")
+        self.assertEqual(c.kw["Attributes"]["identityPrompt"], "Hi, this is Cara — I'm a virtual assistant calling from North Clinic. Am I able to speak with John Doe?")
+        self.assertEqual(c.kw["Attributes"]["identityClarification"], "Hi, this is Cara — I'm a virtual assistant calling from North Clinic. Am I able to speak with John Doe?")
+
+    def test_dialer_opening_line_with_provider(self):
+        class Connect:
+            def __init__(self): self.kw=None
+            def start_outbound_voice_contact(self, **kwargs): self.kw=kwargs; return {"ContactId":"contact-1"}
+        c=Connect(); patient={"patientId":"p1","empi":"p1","phoneNumber":"+18148316822","customerName":"John Doe","firstName":"John","lastName":"Doe","practiceName":"North Clinic","providerName":"Dr. Smith","practiceCallbackNumber":"+18145550100"}
+        self.assertEqual(dialer._place_call(None, c, patient, "c1"), "contact-1")
+        self.assertEqual(c.kw["Attributes"]["providerName"], "Dr. Smith")
+        self.assertEqual(c.kw["Attributes"]["identityPrompt"], "Hi, this is Cara — I'm a virtual assistant calling on behalf of Dr. Smith from North Clinic. Am I able to speak with John Doe?")
+        self.assertEqual(c.kw["Attributes"]["identityClarification"], "Hi, this is Cara — I'm a virtual assistant calling on behalf of Dr. Smith from North Clinic. Am I able to speak with John Doe?")
 
     def test_disposition_mapping_confirmed_denied_ambiguous_missing(self):
         self.assertEqual(dialer._disposition("Confirmed"), "Identity Confirmed")

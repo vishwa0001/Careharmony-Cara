@@ -115,12 +115,12 @@ def main() -> int:
     logging = next(a for a in actions if a["Type"] == "UpdateFlowLoggingBehavior")
     assert "Errors" not in logging["Transitions"]
     lex_actions = [a for a in actions if a["Type"] == "ConnectParticipantWithLexBot"]
-    assert len(lex_actions) == 8
+    assert len(lex_actions) == 9
     identity_actions = [a for a in lex_actions if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${IdentityLexBotAliasArn}"]
     availability_actions = [a for a in lex_actions if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${AvailabilityLexBotAliasArn}"]
     coaching_actions = [a for a in lex_actions if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${LexBotAliasArn}"]
-    assert len(identity_actions) == 4 and len(availability_actions) == 3 and len(coaching_actions) == 1
-    assert {a["Parameters"]["LexSessionAttributes"]["caraHealthBotPhase"] for a in identity_actions} == {"identity-1", "identity-2", "handoff-identity-1", "handoff-identity-2"}
+    assert len(identity_actions) == 5 and len(availability_actions) == 3 and len(coaching_actions) == 1
+    assert {a["Parameters"]["LexSessionAttributes"]["caraHealthBotPhase"] for a in identity_actions} == {"identity-1", "identity-2", "identity-3", "handoff-identity-1", "handoff-identity-2"}
     assert all(
         a["Parameters"]["LexSessionAttributes"].get("expectedCustomerName") == "$.Attributes.customerName"
         for a in identity_actions
@@ -187,9 +187,19 @@ def main() -> int:
     assert second_routes["PatientUnavailable"] == "e0000000-0000-4000-8000-000000000004"
     assert second_routes["ThirdPartyDetected"] == "e0000000-0000-4000-8000-000000000003"
     assert second_routes["IdentityDenied"] == "e0000000-0000-4000-8000-000000000003"
-    assert second_routes["IdentityAmbiguous"] == "e0000000-0000-4000-8000-000000000006"
-    assert second_routes["FallbackIntent"] == "e0000000-0000-4000-8000-000000000006"
-    assert identity_2["Transitions"]["NextAction"] == "e0000000-0000-4000-8000-000000000006"
+    assert second_routes["IdentityAmbiguous"] == "10000000-0000-4000-8000-000000000007"
+    assert second_routes["FallbackIntent"] == "10000000-0000-4000-8000-000000000007"
+    assert identity_2["Transitions"]["NextAction"] == "10000000-0000-4000-8000-000000000007"
+
+    identity_3 = actions_by_id["10000000-0000-4000-8000-000000000007"]
+    third_routes = {
+        c["Condition"]["Operands"][0]: c["NextAction"]
+        for c in identity_3["Transitions"].get("Conditions", [])
+    }
+    assert third_routes["IdentityConfirmed"] == "90000000-0000-4000-8000-000000000004"
+    assert third_routes["IdentityAmbiguous"] == "e0000000-0000-4000-8000-000000000006"
+    assert third_routes["FallbackIntent"] == "e0000000-0000-4000-8000-000000000006"
+    assert identity_3["Transitions"]["NextAction"] == "e0000000-0000-4000-8000-000000000006"
 
     assert actions_by_id["90000000-0000-4000-8000-000000000004"]["Parameters"]["Attributes"]["identityResult"] == "Confirmed"
     assert actions_by_id["90000000-0000-4000-8000-000000000005"]["Parameters"]["Attributes"]["identityResult"] == "Confirmed"

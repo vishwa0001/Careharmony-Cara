@@ -8,6 +8,7 @@ system: |
   <expected_customer_name>{{$.Custom.customerName}}</expected_customer_name>
   <first_name>{{$.Custom.firstName}}</first_name>
   <practice_name>{{$.Custom.practiceName}}</practice_name>
+  <provider_name>{{$.Custom.providerName}}</provider_name>
   <direct_agent>{{$.Custom.direct_agent}}</direct_agent>
   <expected_phone>{{$.Custom.expectedPhone}}</expected_phone>
   <identity_confirmed>{{$.Custom.identityConfirmed}}</identity_confirmed>

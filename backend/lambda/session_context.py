@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from typing import Any
@@ -202,6 +203,28 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
         return {"identityMatch": result}
 
+    if operation == "recognize_text":
+        bot_id = _required(params, "botId")
+        bot_alias_id = _required(params, "botAliasId")
+        text = _required(params, "text")
+        session_id = _optional(params, "sessionId") or "eval-session"
+        locale_id = _optional(params, "localeId") or "en_US"
+        lex_rt = boto3.client("lexv2-runtime", region_name="us-east-1")
+        resp = lex_rt.recognize_text(
+            botId=bot_id,
+            botAliasId=bot_alias_id,
+            localeId=locale_id,
+            sessionId=session_id,
+            text=text,
+        )
+        interps = resp.get("interpretations", [])
+        top_intent = (resp.get("sessionState") or {}).get("intent", {}).get("name")
+        return {
+            "matchedIntent": str(top_intent or ""),
+            "interpretations": json.dumps(interps),
+            "sessionState": json.dumps(resp.get("sessionState") or {}),
+        }
+
     if operation != "initialize":
         raise ValueError("Unsupported operation")
 
@@ -215,6 +238,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     direct_agent = _optional(params, "direct_agent") or _optional(params, "directAgent") or "no"
     practice_name = _optional(params, "practiceName")
     first_name = _optional(params, "firstName")
+    provider_name = _optional(params, "providerName") or _optional(params, "provider_name")
 
     match = SESSION_ARN.fullmatch(session_arn)
     if not match:
@@ -232,6 +256,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     ]
     if practice_name:
         session_data.append({"key": "practiceName", "value": {"stringValue": practice_name}})
+    if provider_name:
+        session_data.append({"key": "providerName", "value": {"stringValue": provider_name}})
     if first_name:
         session_data.append({"key": "firstName", "value": {"stringValue": first_name}})
 

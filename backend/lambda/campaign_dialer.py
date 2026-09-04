@@ -249,16 +249,30 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         or os.environ.get("FIXED_HUMAN_AGENT_PHONE_NUMBER", os.environ.get("FIXED_AGENT_PHONE", "+15822671755"))
     )
 
-    first_name = str(patient.get("firstName") or "").strip()
-    practice_name = str(patient.get("practiceName") or "").strip()
+    first_name = str(patient.get("firstName") or patient.get("first_name") or "").strip()
+    last_name = str(patient.get("lastName") or patient.get("last_name") or "").strip()
+    practice_name = str(patient.get("practiceName") or patient.get("practice_name") or "").strip()
     if not practice_name:
         raise ValueError("practiceName is required on patient record to place call")
+    provider_name = str(patient.get("providerName") or patient.get("provider_name") or "").strip()
+
+    if not first_name and customer_name:
+        first_name = customer_name.strip().split()[0]
+    if not last_name and customer_name and len(customer_name.strip().split()) > 1:
+        last_name = " ".join(customer_name.strip().split()[1:])
 
     resolved_first_name = (
         first_name
         or (customer_name.strip().split()[0] if customer_name.strip() else "")
         or "the patient"
     )
+    full_name = f"{first_name} {last_name}".strip() or customer_name or "the patient"
+
+    if provider_name:
+        identity_prompt = f"Hi, this is Cara — I'm a virtual assistant calling on behalf of {provider_name} from {practice_name}. Am I able to speak with {full_name}?"
+    else:
+        identity_prompt = f"Hi, this is Cara — I'm a virtual assistant calling from {practice_name}. Am I able to speak with {full_name}?"
+
     representative_transfer_message = (
         f"Hi, {practice_name} has some important information to share regarding "
         f"{resolved_first_name}'s care. Please hold while I connect you now."
@@ -279,13 +293,16 @@ def _place_call(patients_table, connect, patient: dict, campaign_id: str, campai
         "humanAgentPhoneNumber": agent_phone or "+15822671755",
         "empi": str(patient.get("empi") or patient["patientId"]),
         "firstName": first_name,
-        "lastName": str(patient.get("lastName") or ""),
+        "lastName": last_name or str(patient.get("lastName") or ""),
         "gender": str(patient.get("gender") or ""),
         "practiceName": practice_name,
         "practiceCallbackNumber": str(patient.get("practiceCallbackNumber") or ""),
+        "providerName": provider_name,
+        "provider_name": provider_name,
         "identityPolicyVersion": "v6-cara-conversational",
-        "identityPrompt": f"Hi, may I speak with {customer_name}?",
-        "identityClarification": f"I'm Cara, an automated assistant, and I'm trying to reach {customer_name}. I can explain more once I confirm I'm speaking with the right person. Are you {customer_name}?",
+        "identityPrompt": identity_prompt,
+        "identityClarification": identity_prompt,
+        "identityDoubleCheckPrompt": f"Just to double check, is this {resolved_first_name}?",
         "identityFailureMessage": f"Thanks. I need to speak directly with {customer_name}, so I'll end the call here. Have a good day.",
         "thirdPartyAvailabilityPrompt": f"Thanks. I need to speak directly with {customer_name}. Is {customer_name} available to come to the phone?",
         "patientUnavailablePrompt": f"No problem. If you know a better day and time to reach {customer_name}, I can note it.",

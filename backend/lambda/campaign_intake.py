@@ -59,6 +59,11 @@ def _field_map(fieldnames: list[str]) -> dict[str, str]:
         if not match:
             raise ValueError(f"patients.csv missing required column: {required}")
         mapping[required] = match
+    for opt in ["provider_name", "provider"]:
+        match = available.get(_clean_key(opt))
+        if match:
+            mapping["provider_name"] = match
+            break
     return mapping
 
 
@@ -163,6 +168,7 @@ def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None
         phone = _normalize_phone_e164(get("phone_number"))
         seen_phone.add(phone)
         callback = _normalize_callback(get("practice_callback_number"))
+        provider = str(row.get(mapping["provider_name"]) or "").strip() if "provider_name" in mapping else ""
 
         # DISABLED FOR CLIENT TESTING — see 2026-09-01 campaign-level direct_agent migration
         # raw_direct = str(row.get(direct_agent_header) or "").strip().lower() if direct_agent_header else ""
@@ -177,6 +183,7 @@ def _load_patients(s3, bucket: str, campaign_id: str, config: dict | None = None
             "phoneNumber": phone,
             "practiceName": practice,
             "practiceCallbackNumber": callback,
+            "providerName": provider,
         }
 
         # Apply campaign-level Direct Agent configuration

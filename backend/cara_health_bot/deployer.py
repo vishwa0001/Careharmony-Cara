@@ -3401,12 +3401,25 @@ class CaraHealthBotDeployer:
                 raise DeploymentError("PatientUnavailable attempt 2 does not persist identityResult=Denied before callback availability")
             if second_routes.get("ThirdPartyDetected") != "e0000000-0000-4000-8000-000000000003":
                 raise DeploymentError("ThirdPartyDetected attempt 2 does not persist identityResult=Denied before availability")
-            if second_routes.get("IdentityAmbiguous") != "e0000000-0000-4000-8000-000000000006":
-                raise DeploymentError("IdentityAmbiguous attempt 2 does not persist identityResult=Ambiguous")
-            if second_routes.get("FallbackIntent") != "e0000000-0000-4000-8000-000000000006":
-                raise DeploymentError("FallbackIntent attempt 2 does not persist identityResult=Ambiguous")
-            if identity_2.get("Transitions", {}).get("NextAction") != "e0000000-0000-4000-8000-000000000006":
-                raise DeploymentError("Unresolved identity attempt 2 does not persist identityResult=Ambiguous")
+            if second_routes.get("IdentityAmbiguous") != "10000000-0000-4000-8000-000000000007":
+                raise DeploymentError("IdentityAmbiguous attempt 2 is not routed to double check clarification")
+            if second_routes.get("FallbackIntent") != "10000000-0000-4000-8000-000000000007":
+                raise DeploymentError("FallbackIntent attempt 2 is not routed to double check clarification")
+            if identity_2.get("Transitions", {}).get("NextAction") != "10000000-0000-4000-8000-000000000007":
+                raise DeploymentError("Unresolved identity attempt 2 is not routed to double check clarification")
+            identity_3 = flow_actions["10000000-0000-4000-8000-000000000007"]
+            third_routes = {
+                c["Condition"]["Operands"][0]: c["NextAction"]
+                for c in identity_3.get("Transitions", {}).get("Conditions", [])
+            }
+            if third_routes.get("IdentityConfirmed") != "90000000-0000-4000-8000-000000000004":
+                raise DeploymentError("IdentityConfirmed attempt 3 is not routed to persisted confirmed-target state")
+            if third_routes.get("IdentityAmbiguous") != "e0000000-0000-4000-8000-000000000006":
+                raise DeploymentError("IdentityAmbiguous attempt 3 does not persist identityResult=Ambiguous")
+            if third_routes.get("FallbackIntent") != "e0000000-0000-4000-8000-000000000006":
+                raise DeploymentError("FallbackIntent attempt 3 does not persist identityResult=Ambiguous")
+            if identity_3.get("Transitions", {}).get("NextAction") != "e0000000-0000-4000-8000-000000000006":
+                raise DeploymentError("Unresolved identity attempt 3 does not persist identityResult=Ambiguous")
             denied_to_availability = flow_actions["e0000000-0000-4000-8000-000000000003"]
             denied_to_callback = flow_actions["e0000000-0000-4000-8000-000000000004"]
             ambiguous_terminal = flow_actions["e0000000-0000-4000-8000-000000000006"]

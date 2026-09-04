@@ -1,4 +1,4 @@
-empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number
-TESTPT-0001,John,Doe,Male,+18148316822,Sample Practice,+18145550100
-TESTPT-0002,Jane,Doe,Female,+18145550123,Sample Practice,+18145550100
-TESTPT-0003,Alex,Doe,Other,+18145550124,Sample Practice,+18145550100
+empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,provider_name
+TESTPT-0001,John,Doe,Male,+18148316822,Sample Practice,+18145550100,Dr. Gregory House
+TESTPT-0002,Jane,Doe,Female,+18145550123,Sample Practice,+18145550100,Dr. Allison Cameron
+TESTPT-0003,Alex,Doe,Other,+18145550124,Sample Practice,+18145550100,Dr. Robert Chase

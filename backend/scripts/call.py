@@ -25,7 +25,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("phone_number", help="Destination in E.164 format, e.g. +18145551212")
     p.add_argument("--customer-name", required=True, help="Expected customer name Cara must confirm before continuing")
     p.add_argument("--practice-name", required=True, help="Referring practice name for this call (required)")
+    p.add_argument("--provider-name", default=None, help="Referring provider name for this call (optional)")
     p.add_argument("--first-name", default=None, help="Patient first name (defaults to first token of customer-name)")
+    p.add_argument("--last-name", default=None, help="Patient last name (defaults to remaining tokens of customer-name)")
     p.add_argument("--i-confirm-consent", action="store_true", help="Required acknowledgment that the recipient expects and consents to the automated call")
     p.add_argument("--dry-run", action="store_true", help="Print the Connect API request without placing a call")
     return p.parse_args()
@@ -64,21 +66,32 @@ def render_behavior_text(
     customer_name: str,
     cfg,
     first_name: str | None = None,
+    last_name: str | None = None,
     practice_name: str | None = None,
+    provider_name: str | None = None,
 ) -> str:
     resolved_first_name = (
         (first_name or "").strip()
         or (customer_name.strip().split()[0] if customer_name.strip() else "")
         or "the patient"
     )
+    resolved_last_name = (
+        (last_name or "").strip()
+        or (" ".join(customer_name.strip().split()[1:]) if len(customer_name.strip().split()) > 1 else "")
+    )
     resolved_practice_name = (practice_name or "").strip()
+    resolved_provider_name = (provider_name or "").strip()
     return template.format(
         customer_name=customer_name,
         customerName=customer_name,
         first_name=resolved_first_name,
         firstName=resolved_first_name,
+        last_name=resolved_last_name,
+        lastName=resolved_last_name,
         practice_name=resolved_practice_name,
         practiceName=resolved_practice_name,
+        provider_name=resolved_provider_name,
+        providerName=resolved_provider_name,
         agent_name=str(cfg.cara_behavior.get("agentName") or "Cara"),
     )
 
@@ -101,11 +114,23 @@ def main() -> int:
         if not practice_name:
             print("Error: --practice-name is required and must be non-empty", file=sys.stderr)
             return 2
+        provider_name = (args.provider_name or "").strip()
         resolved_first_name = (
             (args.first_name or "").strip()
             or (customer_name.strip().split()[0] if customer_name.strip() else "")
             or "the patient"
         )
+        resolved_last_name = (
+            (args.last_name or "").strip()
+            or (" ".join(customer_name.strip().split()[1:]) if len(customer_name.strip().split()) > 1 else "")
+        )
+        full_name = f"{resolved_first_name} {resolved_last_name}".strip() or customer_name or "the patient"
+
+        if provider_name:
+            identity_prompt = f"Hi, this is Cara — I'm a virtual assistant calling on behalf of {provider_name} from {practice_name}. Am I able to speak with {full_name}?"
+        else:
+            identity_prompt = f"Hi, this is Cara — I'm a virtual assistant calling from {practice_name}. Am I able to speak with {full_name}?"
+
         out = load_outputs()
         request = {
             "DestinationPhoneNumber": args.phone_number,
@@ -119,15 +144,21 @@ def main() -> int:
             "Attributes": {
                 "customerName": customer_name,
                 "firstName": resolved_first_name,
+                "lastName": resolved_last_name,
                 "practiceName": practice_name,
+                "providerName": provider_name,
+                "provider_name": provider_name,
                 "expectedPhone": args.phone_number,
                 "identityPolicyVersion": "v6-cara-conversational",
-                "identityPrompt": f"Hi, may I speak with {customer_name}?",
-                "identityClarification": render_behavior_text(
-                    cfg.cara_behavior["preIdentityQuestionResponse"],
+                "identityPrompt": identity_prompt,
+                "identityClarification": identity_prompt,
+                "identityDoubleCheckPrompt": render_behavior_text(
+                    cfg.cara_behavior.get("identityDoubleCheckPrompt", "Just to double check, is this {first_name}?"),
                     customer_name=customer_name,
                     first_name=resolved_first_name,
+                    last_name=resolved_last_name,
                     practice_name=practice_name,
+                    provider_name=provider_name,
                     cfg=cfg,
                 ),
                 "identityFailureMessage": f"Thanks. I need to speak directly with {customer_name}, so I'll end the call here. Have a good day.",

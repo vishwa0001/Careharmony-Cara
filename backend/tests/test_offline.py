@@ -325,7 +325,7 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
     def test_safety_is_first_route_in_all_pre_q_conversational_lex_actions(self):
         actions = [a for a in self._flow()["Actions"] if a["Type"] == "ConnectParticipantWithLexBot"]
         pre_q = [a for a in actions if a["Parameters"]["LexV2Bot"]["AliasArn"] in {"${IdentityLexBotAliasArn}", "${AvailabilityLexBotAliasArn}"}]
-        self.assertEqual(len(pre_q), 7)
+        self.assertEqual(len(pre_q), 8)
         for action in pre_q:
             operands = [c["Condition"]["Operands"][0] for c in action["Transitions"].get("Conditions", [])]
             self.assertGreaterEqual(len(operands), 2)
@@ -364,11 +364,11 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         identity = [a for a in lex if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${IdentityLexBotAliasArn}"]
         availability = [a for a in lex if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${AvailabilityLexBotAliasArn}"]
         coaching = [a for a in lex if a["Parameters"]["LexV2Bot"]["AliasArn"] == "${LexBotAliasArn}"]
-        self.assertEqual(len(identity), 4)
+        self.assertEqual(len(identity), 5)
         self.assertEqual(len(availability), 3)
         self.assertEqual(len(coaching), 1)
         phases = {a["Parameters"]["LexSessionAttributes"]["caraHealthBotPhase"] for a in lex}
-        self.assertTrue({"identity-1", "identity-2", "third-party-availability-1", "third-party-availability-2", "patient-unavailable-callback", "handoff-identity-1", "handoff-identity-2", "coaching"} <= phases)
+        self.assertTrue({"identity-1", "identity-2", "identity-3", "third-party-availability-1", "third-party-availability-2", "patient-unavailable-callback", "handoff-identity-1", "handoff-identity-2", "coaching"} <= phases)
         for action in identity:
             self.assertEqual(
                 action["Parameters"]["LexSessionAttributes"]["expectedCustomerName"],
@@ -392,9 +392,15 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
         second = actions["10000000-0000-4000-8000-000000000003"]
         second_routes = {c["Condition"]["Operands"][0]: c["NextAction"] for c in second["Transitions"]["Conditions"]}
         self.assertEqual(second_routes["IdentityNamedConfirmation"], "f1000000-0000-4000-8000-000000000003")
-        self.assertEqual(second_routes["IdentityAmbiguous"], "e0000000-0000-4000-8000-000000000006")
-        self.assertEqual(second_routes["FallbackIntent"], "e0000000-0000-4000-8000-000000000006")
-        self.assertEqual(second["Transitions"]["NextAction"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(second_routes["IdentityAmbiguous"], "10000000-0000-4000-8000-000000000007")
+        self.assertEqual(second_routes["FallbackIntent"], "10000000-0000-4000-8000-000000000007")
+        self.assertEqual(second["Transitions"]["NextAction"], "10000000-0000-4000-8000-000000000007")
+        third = actions["10000000-0000-4000-8000-000000000007"]
+        third_routes = {c["Condition"]["Operands"][0]: c["NextAction"] for c in third["Transitions"]["Conditions"]}
+        self.assertEqual(third_routes["IdentityConfirmed"], "90000000-0000-4000-8000-000000000004")
+        self.assertEqual(third_routes["IdentityAmbiguous"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(third_routes["FallbackIntent"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(third["Transitions"]["NextAction"], "e0000000-0000-4000-8000-000000000006")
         compare = actions["b0000000-0000-4000-8000-000000000001"]
         self.assertEqual(compare["Type"], "Compare")
         self.assertEqual(compare["Parameters"]["ComparisonValue"], "$.Lex.SessionAttributes.Tool")
@@ -559,8 +565,9 @@ class CaraHealthBotOfflineTests(unittest.TestCase):
     def test_call_passes_dynamic_identity_prompts(self):
         text = (self.cfg.root / "scripts" / "call.py").read_text(encoding="utf-8")
         self.assertIn('"identityPolicyVersion": "v6-cara-conversational"', text)
-        self.assertIn('"identityPrompt": f"Hi, may I speak with {customer_name}?"', text)
-        self.assertIn('cfg.cara_behavior["preIdentityQuestionResponse"]', text)
+        self.assertIn('"identityPrompt": identity_prompt', text)
+        self.assertIn('"identityClarification": identity_prompt', text)
+        self.assertIn('"providerName": provider_name', text)
         self.assertIn('cfg.cara_behavior["otherPersonResponse"]', text)
         self.assertIn('"passPhonePrompt": f"Thanks. Please pass the phone to {customer_name}."', text)
         self.assertIn('"handoffIdentityPrompt": f"Hi. May I confirm I\'m speaking with {customer_name}?"', text)
@@ -942,9 +949,16 @@ class CaraCampaignFlowContractTests(unittest.TestCase):
     def test_second_attempt_unresolved_identity_persists_ambiguous_and_ends(self):
         second = self.actions["10000000-0000-4000-8000-000000000003"]
         routes = {c["Condition"]["Operands"][0]: c["NextAction"] for c in second["Transitions"]["Conditions"]}
-        self.assertEqual(routes["IdentityAmbiguous"], "e0000000-0000-4000-8000-000000000006")
-        self.assertEqual(routes["FallbackIntent"], "e0000000-0000-4000-8000-000000000006")
-        self.assertEqual(second["Transitions"]["NextAction"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(routes["IdentityAmbiguous"], "10000000-0000-4000-8000-000000000007")
+        self.assertEqual(routes["FallbackIntent"], "10000000-0000-4000-8000-000000000007")
+        self.assertEqual(second["Transitions"]["NextAction"], "10000000-0000-4000-8000-000000000007")
+
+        third = self.actions["10000000-0000-4000-8000-000000000007"]
+        third_routes = {c["Condition"]["Operands"][0]: c["NextAction"] for c in third["Transitions"]["Conditions"]}
+        self.assertEqual(third_routes["IdentityAmbiguous"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(third_routes["FallbackIntent"], "e0000000-0000-4000-8000-000000000006")
+        self.assertEqual(third["Transitions"]["NextAction"], "e0000000-0000-4000-8000-000000000006")
+
         ambiguous = self.actions["e0000000-0000-4000-8000-000000000006"]
         self.assertEqual(ambiguous["Parameters"]["Attributes"]["identityResult"], "Ambiguous")
         self.assertEqual(ambiguous["Transitions"]["NextAction"], "10000000-0000-4000-8000-000000000005")

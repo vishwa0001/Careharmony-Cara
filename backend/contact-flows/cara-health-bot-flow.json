@@ -224,6 +224,160 @@
       "Identifier": "10000000-0000-4000-8000-000000000003",
       "Type": "ConnectParticipantWithLexBot",
       "Transitions": {
+        "NextAction": "10000000-0000-4000-8000-000000000007",
+        "Conditions": [
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyMedical"
+              ]
+            }
+          },
+          {
+            "NextAction": "d0000000-0000-4000-8000-000000000002",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "SafetyBehavioral"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "PatientUnavailable"
+              ]
+            }
+          },
+          {
+            "NextAction": "90000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityConfirmed"
+              ]
+            }
+          },
+          {
+            "NextAction": "f1000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityNamedConfirmation"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityDenied"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "ThirdPartyDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000005",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "RepresentativeDetected"
+              ]
+            }
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000001",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "WrongNumber"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000003",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Deceased"
+              ]
+            }
+          },
+          {
+            "NextAction": "c0000000-0000-4000-8000-000000000004",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CallRefusal"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityAmbiguous"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000007",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "$.Attributes.identityDoubleCheckPrompt",
+        "LexV2Bot": {
+          "AliasArn": "${IdentityLexBotAliasArn}"
+        },
+        "LexSessionAttributes": {
+          "x-amz-lex:audio:max-length-ms:*:*": "15000",
+          "x-amz-lex:audio:start-timeout-ms:*:*": "6000",
+          "x-amz-lex:audio:end-timeout-ms:*:*": "1000",
+          "caraHealthBotContactId": "$.ContactId",
+          "caraHealthBotPhase": "identity-3",
+          "expectedCustomerName": "$.Attributes.customerName"
+        }
+      },
+      "Identifier": "10000000-0000-4000-8000-000000000007",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
         "NextAction": "e0000000-0000-4000-8000-000000000006",
         "Conditions": [
           {
@@ -1088,6 +1242,24 @@
                 "CallRefusal"
               ]
             }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "IdentityAmbiguous"
+              ]
+            }
+          },
+          {
+            "NextAction": "10000000-0000-4000-8000-000000000007",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
           }
         ],
         "Errors": [
@@ -1096,7 +1268,7 @@
             "ErrorType": "InputTimeLimitExceeded"
           },
           {
-            "NextAction": "e0000000-0000-4000-8000-000000000002",
+            "NextAction": "10000000-0000-4000-8000-000000000007",
             "ErrorType": "NoMatchingCondition"
           },
           {
