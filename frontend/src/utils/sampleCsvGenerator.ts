@@ -7,6 +7,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101001',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    provider_name: 'Dr. Gregory House',
   },
   {
     empi: 'TESTPT-0000',
@@ -16,6 +17,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101002',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    provider_name: 'Dr. Allison Cameron',
   },
   {
     empi: 'TESTPT-0000',
@@ -25,6 +27,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101003',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    provider_name: 'Dr. Robert Chase',
   },
   {
     empi: 'TESTPT-0000',
@@ -34,6 +37,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101004',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    provider_name: 'Dr. Eric Foreman',
   },
   {
     empi: 'TESTPT-0000',
@@ -43,6 +47,7 @@ export const SAMPLE_CUSTOMER_RECORDS = [
     phone_number: '15550101005',
     practice_name: 'Sample Practice Group',
     practice_callback_number: '5555550100',
+    provider_name: 'Dr. Lisa Cuddy',
   },
 ];
 
@@ -68,6 +73,7 @@ export function generateSampleCsvContent(): string {
     'phone_number',
     'practice_name',
     'practice_callback_number',
+    'provider_name',
   ];
   const lines = [headers.join(',')];
 
@@ -80,6 +86,7 @@ export function generateSampleCsvContent(): string {
       escapeCsvField(rec.phone_number),
       escapeCsvField(rec.practice_name),
       escapeCsvField(rec.practice_callback_number),
+      escapeCsvField(rec.provider_name),
     ];
     lines.push(row.join(','));
   });

@@ -101,7 +101,7 @@ export const CustomerSheetUpload: React.FC<CustomerSheetUploadProps> = ({
             <p className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200">
               Drag & drop your CSV customer sheet here
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Supported CSV headers: empi, first_name, last_name, gender, phone_number, practice_name, practice_callback_number</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Supported CSV headers: empi, first_name, last_name, gender, phone_number, practice_name, practice_callback_number (optional: provider_name)</p>
 
             <button
               type="button"

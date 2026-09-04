@@ -22,7 +22,7 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
       const csv = generateSampleCsvContent();
       const lines = csv.split("\n");
       expect(lines[0]).toBe(
-        "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number",
+        "empi,first_name,last_name,gender,phone_number,practice_name,practice_callback_number,provider_name",
       );
       expect(csv).not.toContain("direct agent");
       expect(csv).not.toContain("human_agent_phone_number");
@@ -38,6 +38,7 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
           "phone_number",
           "practice_name",
           "practice_callback_number",
+          "provider_name",
         ],
         rows: [...SAMPLE_CUSTOMER_RECORDS],
         rawRowCount: SAMPLE_CUSTOMER_RECORDS.length,
@@ -153,6 +154,30 @@ describe("Scheduled Calls Validation & Feature Suite", () => {
       };
 
       const result = validateSheetContent(parsedDataWithCol);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("accepts CSVs with optional 'provider_name' column", () => {
+      const parsedDataWithProvider = {
+        headers: [
+          "empi",
+          "first_name",
+          "last_name",
+          "gender",
+          "phone_number",
+          "practice_name",
+          "practice_callback_number",
+          "provider_name",
+        ],
+        rows: [
+          { empi: "T1", first_name: "Robert", last_name: "Alderman", gender: "Male", phone_number: "+18145551111", practice_name: "Sample Practice Group", practice_callback_number: "+18145550000", provider_name: "Dr. Gregory House" },
+          { empi: "T2", first_name: "Karen", last_name: "Whitfield", gender: "Female", phone_number: "+18145552222", practice_name: "Sample Practice Group", practice_callback_number: "+18145550000", provider_name: "" },
+        ],
+        rawRowCount: 2,
+      };
+
+      const result = validateSheetContent(parsedDataWithProvider);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
